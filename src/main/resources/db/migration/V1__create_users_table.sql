@@ -7,8 +7,8 @@ CREATE TABLE users
     email               VARCHAR(255),
     avatar_url          VARCHAR(512),
     github_access_token VARCHAR(512),
-    created_at          TIMESTAMP    NOT NULL DEFAULT now(),
-    updated_at          TIMESTAMP    NOT NULL DEFAULT now()
+    created_at          TIMESTAMPTZ    NOT NULL DEFAULT CURRENT_TIMESTAMP ,
+    updated_at          TIMESTAMPTZ    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_users_github_id ON users (github_id);

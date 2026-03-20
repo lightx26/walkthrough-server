@@ -1,6 +1,5 @@
 package com.pet.walkthroughserver.modules._shared.infra.github;
 
-import com.pet.walkthroughserver.exceptions.AppException;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubAccessTokenResponse;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequest;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubRepository;
@@ -50,7 +49,7 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
         if (response == null || response.hasError()) {
             String errorMsg = response != null ? response.getErrorDescription() : "No response from GitHub";
             log.error("GitHub OAuth token exchange failed: {}", errorMsg);
-            throw AppException.unauthorized("GitHub authentication failed: " + errorMsg);
+            throw new GitHubAuthFailedException("GitHub authentication failed: " + errorMsg);
         }
 
         return response;
@@ -66,7 +65,7 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
                 .body(GitHubUserInfo.class);
 
         if (userInfo == null || userInfo.getId() == null) {
-            throw AppException.unauthorized("Failed to fetch GitHub user info");
+            throw new GitHubAuthFailedException("Failed to fetch GitHub user info");
         }
 
         return userInfo;
@@ -85,7 +84,7 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
                 .body(new ParameterizedTypeReference<>() {});
 
         if (repos == null) {
-            throw AppException.badRequest("Failed to fetch repositories from GitHub");
+            throw new GitHubApiException("Failed to fetch repositories from GitHub");
         }
 
         return repos;
@@ -102,7 +101,7 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
                 .body(GitHubSearchReposResponse.class);
 
         if (response == null) {
-            throw AppException.badRequest("Failed to search repositories on GitHub");
+            throw new GitHubApiException("Failed to search repositories on GitHub");
         }
 
         return response;
@@ -120,7 +119,7 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
                 .body(new ParameterizedTypeReference<>() {});
 
         if (pullRequests == null) {
-            throw AppException.badRequest("Failed to fetch pull requests from GitHub");
+            throw new GitHubApiException("Failed to fetch pull requests from GitHub");
         }
 
         return pullRequests;
@@ -137,7 +136,7 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
                 .body(GitHubPullRequest.class);
 
         if (pullRequest == null) {
-            throw AppException.notFound("Pull request not found");
+            throw new GitHubResourceNotFoundException("Pull request not found");
         }
 
         return pullRequest;
