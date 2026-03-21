@@ -1,4 +1,4 @@
-package com.pet.walkthroughserver.modules._shared.dto;
+package com.pet.walkthroughserver.interceptors;
 
 import lombok.Getter;
 

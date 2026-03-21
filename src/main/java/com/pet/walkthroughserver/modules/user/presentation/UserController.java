@@ -1,6 +1,6 @@
 package com.pet.walkthroughserver.modules.user.presentation;
 
-import com.pet.walkthroughserver.modules._shared.dto.DataResponse;
+import com.pet.walkthroughserver.interceptors.DataResponse;
 import com.pet.walkthroughserver.modules.user.business.services.UserService;
 import com.pet.walkthroughserver.modules.user.presentation.dto.UserResponse;
 import com.pet.walkthroughserver.modules.user.presentation.mapper.UserPresentationMapper;
@@ -8,6 +8,7 @@ import com.pet.walkthroughserver.modules.user.repository.UserEntity;
 import com.pet.walkthroughserver.security.AuthUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,6 +25,7 @@ public class UserController {
     private final UserPresentationMapper userPresentationMapper;
 
     @GetMapping("/me")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<DataResponse<UserResponse>> getCurrentUser(
             @AuthenticationPrincipal AuthUser authUser) {
         UserEntity user = userService.getCurrentUser(UUID.fromString(authUser.getUserId()));

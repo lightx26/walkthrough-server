@@ -1,6 +1,6 @@
 package com.pet.walkthroughserver.modules.auth.presentation;
 
-import com.pet.walkthroughserver.modules._shared.dto.DataResponse;
+import com.pet.walkthroughserver.interceptors.DataResponse;
 import com.pet.walkthroughserver.modules.auth.exceptions.NotAuthenticatedException;
 import com.pet.walkthroughserver.modules._shared.infra.cookie.CookieService;
 import com.pet.walkthroughserver.modules.auth.business.models.AuthResult;
@@ -16,6 +16,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -30,8 +31,8 @@ public class AuthController {
     private final CookieService cookieService;
     private final UserPresentationMapper userPresentationMapper;
 
-    @PermitAll
     @PostMapping("/github")
+    @PermitAll
     public ResponseEntity<DataResponse<UserResponse>> loginWithGitHub(
             @Valid @RequestBody GitHubOAuthRequest request,
             HttpServletResponse response) {
@@ -40,8 +41,8 @@ public class AuthController {
         return ResponseEntity.ok(DataResponse.of(userPresentationMapper.toResponse(authResult.getUser())));
     }
 
-    @PermitAll
     @PostMapping("/refresh")
+    @PermitAll
     public ResponseEntity<DataResponse<UserResponse>> refreshToken(
             HttpServletRequest request,
             HttpServletResponse response) {
@@ -54,8 +55,8 @@ public class AuthController {
         return ResponseEntity.ok(DataResponse.of(userPresentationMapper.toResponse(authResult.getUser())));
     }
 
-    @PermitAll
     @GetMapping("/me")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<DataResponse<UserResponse>> me(@AuthenticationPrincipal AuthUser authUser) {
         if (authUser == null) {
             throw new NotAuthenticatedException("Not authenticated");
@@ -70,6 +71,6 @@ public class AuthController {
             HttpServletResponse response) {
         authService.logout(UUID.fromString(authUser.getUserId()));
         cookieService.clearAuthCookies(response);
-        return ResponseEntity.ok(DataResponse.of("Logged out successfully", null));
+        return ResponseEntity.ok(DataResponse.of(null, "Logged out successfully"));
     }
 }

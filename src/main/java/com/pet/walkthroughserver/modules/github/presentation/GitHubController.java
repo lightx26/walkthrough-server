@@ -1,6 +1,6 @@
 package com.pet.walkthroughserver.modules.github.presentation;
 
-import com.pet.walkthroughserver.modules._shared.dto.DataResponse;
+import com.pet.walkthroughserver.interceptors.DataResponse;
 import com.pet.walkthroughserver.modules._shared.dto.ListData;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequest;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubRepository;
@@ -12,6 +12,7 @@ import com.pet.walkthroughserver.modules.github.presentation.mapper.RepositoryPr
 import com.pet.walkthroughserver.security.AuthUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,6 +29,7 @@ public class GitHubController {
     private final PullRequestPresentationMapper pullRequestMapper;
 
     @GetMapping("/repos")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<DataResponse<ListData<RepositoryResponse>>> getUserRepositories(
             @AuthenticationPrincipal AuthUser authUser,
             @RequestParam(required = false) String q,
@@ -42,6 +44,7 @@ public class GitHubController {
     }
 
     @GetMapping("/repos/{owner}/{repo}/pulls")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<DataResponse<ListData<PullRequestResponse>>> getPullRequests(
             @AuthenticationPrincipal AuthUser authUser,
             @PathVariable String owner,
@@ -55,6 +58,7 @@ public class GitHubController {
     }
 
     @GetMapping("/repos/{owner}/{repo}/pulls/{pullNumber}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<DataResponse<PullRequestResponse>> getPullRequest(
             @AuthenticationPrincipal AuthUser authUser,
             @PathVariable String owner,

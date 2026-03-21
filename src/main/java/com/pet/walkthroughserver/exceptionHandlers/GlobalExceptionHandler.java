@@ -1,7 +1,8 @@
 package com.pet.walkthroughserver.exceptionHandlers;
 
-import com.pet.walkthroughserver.modules._shared.dto.ErrorResponse;
+import com.pet.walkthroughserver.interceptors.ErrorResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -15,6 +16,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Slf4j
+@Order(2)
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 

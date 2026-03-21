@@ -1,4 +1,4 @@
-package com.pet.walkthroughserver.modules._shared.dto;
+package com.pet.walkthroughserver.interceptors;
 
 import lombok.Getter;
 
@@ -13,10 +13,10 @@ public class DataResponse<T> extends ApiResponse {
     }
 
     public static <T> DataResponse<T> of(T data) {
-        return new DataResponse<>(data, null);
+        return new DataResponse<>(data, "Success");
     }
 
-    public static <T> DataResponse<T> of(String message, T data) {
+    public static <T> DataResponse<T> of(T data, String message) {
         return new DataResponse<>(data, message);
     }
 }

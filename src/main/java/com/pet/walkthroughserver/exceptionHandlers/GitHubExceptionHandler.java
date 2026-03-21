@@ -1,7 +1,6 @@
 package com.pet.walkthroughserver.exceptionHandlers;
 
-import com.pet.walkthroughserver.modules._shared.dto.ErrorResponse;
-import com.pet.walkthroughserver.modules._shared.exceptions.AppException;
+import com.pet.walkthroughserver.interceptors.ErrorResponse;
 import com.pet.walkthroughserver.modules._shared.infra.github.GitHubApiException;
 import com.pet.walkthroughserver.modules._shared.infra.github.GitHubAuthFailedException;
 import com.pet.walkthroughserver.modules._shared.infra.github.GitHubResourceNotFoundException;
@@ -9,11 +8,15 @@ import com.pet.walkthroughserver.modules.github.exceptions.GitHubAccessTokenNotF
 import com.pet.walkthroughserver.modules.github.presentation.GitHubController;
 import com.pet.walkthroughserver.modules.user.exceptions.UserNotFoundException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import static com.pet.walkthroughserver.utils.ExceptionResponse.respond;
+
 @Slf4j
+@Order(1)
 @RestControllerAdvice(basePackageClasses = GitHubController.class)
 public class GitHubExceptionHandler {
 
@@ -45,11 +48,5 @@ public class GitHubExceptionHandler {
     public ResponseEntity<ErrorResponse> handleUserNotFound(UserNotFoundException ex) {
         log.warn("UserNotFoundException in GitHub context: {}", ex.getMessage());
         return respond(ex);
-    }
-
-    private ResponseEntity<ErrorResponse> respond(AppException ex) {
-        return ResponseEntity
-                .status(ex.getHttpStatus())
-                .body(ErrorResponse.of(ex.getErrorCode(), ex.getMessage()));
     }
 }
