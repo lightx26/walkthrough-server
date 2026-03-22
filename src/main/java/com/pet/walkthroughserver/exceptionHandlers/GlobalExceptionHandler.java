@@ -1,10 +1,12 @@
 package com.pet.walkthroughserver.exceptionHandlers;
 
-import com.pet.walkthroughserver.interceptors.ErrorResponse;
-import lombok.extern.slf4j.Slf4j;
+import java.util.HashMap;
+import java.util.Map;
+
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -12,8 +14,9 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
-import java.util.HashMap;
-import java.util.Map;
+import com.pet.walkthroughserver.interceptors.ErrorResponse;
+
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Order(2)
@@ -61,6 +64,16 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of(
                         "TYPE_MISMATCH",
                         message));
+    }
+
+    @ExceptionHandler(AuthorizationDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAuthorizationDenied(AuthorizationDeniedException ex) {
+        log.debug("Authorization denied: {}", ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.UNAUTHORIZED)
+                .body(ErrorResponse.of(
+                        "NOT_AUTHENTICATED",
+                        "Authentication required"));
     }
 
     @ExceptionHandler(Exception.class)
