@@ -1,7 +1,9 @@
 package com.pet.walkthroughserver.modules._shared.infra.github;
 
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubAccessTokenResponse;
+import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubCommit;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequest;
+import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequestFile;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubRepository;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubSearchReposResponse;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubUserInfo;
@@ -143,5 +145,58 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
         }
 
         return pullRequest;
+    }
+
+    @Override
+    public List<GitHubCommit> fetchPullRequestCommits(String accessToken, String owner, String repo, int pullNumber) {
+        List<GitHubCommit> commits = restClient.get()
+                .uri(GITHUB_API_URL + "/repos/{owner}/{repo}/pulls/{pullNumber}/commits?per_page=100",
+                        owner, repo, pullNumber)
+                .header("Authorization", "Bearer " + accessToken)
+                .accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .body(new ParameterizedTypeReference<>() {});
+
+        if (commits == null) {
+            throw new GitHubApiException("Failed to fetch pull request commits from GitHub");
+        }
+
+        return commits;
+    }
+
+    @Override
+    public List<GitHubPullRequestFile> fetchPullRequestFiles(String accessToken, String owner, String repo, int pullNumber) {
+        List<GitHubPullRequestFile> files = restClient.get()
+                .uri(GITHUB_API_URL + "/repos/{owner}/{repo}/pulls/{pullNumber}/files?per_page=100",
+                        owner, repo, pullNumber)
+                .header("Authorization", "Bearer " + accessToken)
+                .accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .body(new ParameterizedTypeReference<>() {});
+
+        if (files == null) {
+            throw new GitHubApiException("Failed to fetch pull request files from GitHub");
+        }
+
+        return files;
+    }
+
+    @Override
+    public List<GitHubPullRequestFile> fetchCommitFiles(String accessToken, String owner, String repo, String commitSha) {
+        record GitHubCommitDetail(List<GitHubPullRequestFile> files) {}
+
+        GitHubCommitDetail detail = restClient.get()
+                .uri(GITHUB_API_URL + "/repos/{owner}/{repo}/commits/{sha}",
+                        owner, repo, commitSha)
+                .header("Authorization", "Bearer " + accessToken)
+                .accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .body(GitHubCommitDetail.class);
+
+        if (detail == null || detail.files() == null) {
+            throw new GitHubApiException("Failed to fetch commit files from GitHub");
+        }
+
+        return detail.files();
     }
 }

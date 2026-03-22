@@ -14,6 +14,7 @@ import com.pet.walkthroughserver.modules.user.repository.UserEntity;
 import com.pet.walkthroughserver.security.AuthUser;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -35,6 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(value = AuthController.class, properties = "cors.allowed.origins=http://localhost")
+@AutoConfigureMockMvc(addFilters = false)
 class AuthControllerTest {
 
     private static final UUID USER_ID = UUID.randomUUID();

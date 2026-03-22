@@ -2,7 +2,9 @@ package com.pet.walkthroughserver.modules.github.business.services;
 
 import com.pet.walkthroughserver.modules.github.exceptions.GitHubAccessTokenNotFoundException;
 import com.pet.walkthroughserver.modules._shared.infra.github.GitHubResourceClient;
+import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubCommit;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequest;
+import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequestFile;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubRepository;
 import com.pet.walkthroughserver.modules.user.business.services.UserService;
 import com.pet.walkthroughserver.modules.user.repository.UserEntity;
@@ -44,6 +46,24 @@ public class GitHubServiceImpl implements GitHubService {
     public GitHubPullRequest getPullRequest(UUID userId, String owner, String repo, int pullNumber) {
         String accessToken = getGitHubAccessToken(userId);
         return gitHubResourceClient.fetchPullRequest(accessToken, owner, repo, pullNumber);
+    }
+
+    @Override
+    public List<GitHubCommit> getPullRequestCommits(UUID userId, String owner, String repo, int pullNumber) {
+        String accessToken = getGitHubAccessToken(userId);
+        return gitHubResourceClient.fetchPullRequestCommits(accessToken, owner, repo, pullNumber);
+    }
+
+    @Override
+    public List<GitHubPullRequestFile> getPullRequestFiles(UUID userId, String owner, String repo, int pullNumber) {
+        String accessToken = getGitHubAccessToken(userId);
+        return gitHubResourceClient.fetchPullRequestFiles(accessToken, owner, repo, pullNumber);
+    }
+
+    @Override
+    public List<GitHubPullRequestFile> getCommitFiles(UUID userId, String owner, String repo, String commitSha) {
+        String accessToken = getGitHubAccessToken(userId);
+        return gitHubResourceClient.fetchCommitFiles(accessToken, owner, repo, commitSha);
     }
 
     private String getGitHubAccessToken(UUID userId) {

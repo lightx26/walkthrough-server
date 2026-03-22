@@ -1,6 +1,8 @@
 package com.pet.walkthroughserver.modules._shared.infra.github;
 
+import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubCommit;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequest;
+import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequestFile;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubRepository;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubSearchReposResponse;
 
@@ -19,4 +21,10 @@ public interface GitHubResourceClient {
     List<GitHubPullRequest> fetchPullRequests(String accessToken, String owner, String repo, String state, int page, int perPage);
 
     GitHubPullRequest fetchPullRequest(String accessToken, String owner, String repo, int pullNumber);
+
+    List<GitHubCommit> fetchPullRequestCommits(String accessToken, String owner, String repo, int pullNumber);
+
+    List<GitHubPullRequestFile> fetchPullRequestFiles(String accessToken, String owner, String repo, int pullNumber);
+
+    List<GitHubPullRequestFile> fetchCommitFiles(String accessToken, String owner, String repo, String commitSha);
 }
