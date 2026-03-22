@@ -1,7 +1,7 @@
 package com.pet.walkthroughserver.modules.auth.presentation;
 
 import com.pet.walkthroughserver.modules._shared.infra.cookie.CookieService;
-import com.pet.walkthroughserver.modules._shared.infra.github.GitHubAuthFailedException;
+import com.pet.walkthroughserver.modules._shared.infra.github.exceptions.GitHubAuthFailedException;
 import com.pet.walkthroughserver.modules._shared.infra.jwt.TokenService;
 import com.pet.walkthroughserver.modules.auth.business.models.AuthResult;
 import com.pet.walkthroughserver.modules.auth.business.services.AuthService;

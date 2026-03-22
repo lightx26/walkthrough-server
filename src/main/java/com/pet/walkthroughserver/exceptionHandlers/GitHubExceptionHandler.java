@@ -1,9 +1,9 @@
 package com.pet.walkthroughserver.exceptionHandlers;
 
 import com.pet.walkthroughserver.interceptors.ErrorResponse;
-import com.pet.walkthroughserver.modules._shared.infra.github.GitHubApiException;
-import com.pet.walkthroughserver.modules._shared.infra.github.GitHubAuthFailedException;
-import com.pet.walkthroughserver.modules._shared.infra.github.GitHubResourceNotFoundException;
+import com.pet.walkthroughserver.modules._shared.infra.github.exceptions.GitHubApiException;
+import com.pet.walkthroughserver.modules._shared.infra.github.exceptions.GitHubAuthFailedException;
+import com.pet.walkthroughserver.modules._shared.infra.github.exceptions.GitHubResourceNotFoundException;
 import com.pet.walkthroughserver.modules.github.exceptions.GitHubAccessTokenNotFoundException;
 import com.pet.walkthroughserver.modules.github.presentation.GitHubController;
 import com.pet.walkthroughserver.modules.user.exceptions.UserNotFoundException;

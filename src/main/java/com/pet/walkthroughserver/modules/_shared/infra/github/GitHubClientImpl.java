@@ -5,6 +5,9 @@ import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequ
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubRepository;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubSearchReposResponse;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubUserInfo;
+import com.pet.walkthroughserver.modules._shared.infra.github.exceptions.GitHubApiException;
+import com.pet.walkthroughserver.modules._shared.infra.github.exceptions.GitHubAuthFailedException;
+import com.pet.walkthroughserver.modules._shared.infra.github.exceptions.GitHubResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;

@@ -1,7 +1,7 @@
 package com.pet.walkthroughserver.exceptionHandlers;
 
 import com.pet.walkthroughserver.interceptors.ErrorResponse;
-import com.pet.walkthroughserver.modules._shared.infra.github.GitHubAuthFailedException;
+import com.pet.walkthroughserver.modules._shared.infra.github.exceptions.GitHubAuthFailedException;
 import com.pet.walkthroughserver.modules.auth.exceptions.InvalidTokenException;
 import com.pet.walkthroughserver.modules.auth.exceptions.NotAuthenticatedException;
 import com.pet.walkthroughserver.modules.auth.exceptions.TokenExpiredException;

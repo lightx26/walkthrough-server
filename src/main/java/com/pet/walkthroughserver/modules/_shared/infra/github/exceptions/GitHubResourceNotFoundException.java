@@ -1,4 +1,4 @@
-package com.pet.walkthroughserver.modules._shared.infra.github;
+package com.pet.walkthroughserver.modules._shared.infra.github.exceptions;
 
 import com.pet.walkthroughserver.modules._shared.exceptions.AppException;
 import org.springframework.http.HttpStatus;
