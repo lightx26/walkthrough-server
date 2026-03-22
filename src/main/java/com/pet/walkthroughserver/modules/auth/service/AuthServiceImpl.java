@@ -1,13 +1,15 @@
 package com.pet.walkthroughserver.modules.auth.service;
 
 import com.pet.walkthroughserver.exceptions.AppException;
+import com.pet.walkthroughserver.modules._shared.infra.github.GitHubAuthClient;
+import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubAccessTokenResponse;
+import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubUserInfo;
+import com.pet.walkthroughserver.modules._shared.infra.jwt.TokenService;
 import com.pet.walkthroughserver.modules.auth.dto.AuthResponse;
 import com.pet.walkthroughserver.modules.auth.entity.RefreshTokenEntity;
 import com.pet.walkthroughserver.modules.auth.repository.RefreshTokenRepository;
-import com.pet.walkthroughserver.modules.common.github.GitHubClient;
-import com.pet.walkthroughserver.modules.common.github.dto.GitHubAccessTokenResponse;
-import com.pet.walkthroughserver.modules.common.github.dto.GitHubUserInfo;
-import com.pet.walkthroughserver.modules.common.jwt.TokenService;
+import com.pet.walkthroughserver.modules.user.dto.GitHubUserData;
+import com.pet.walkthroughserver.modules.user.dto.UserResponse;
 import com.pet.walkthroughserver.modules.user.entity.UserEntity;
 import com.pet.walkthroughserver.modules.user.mapper.UserMapper;
 import com.pet.walkthroughserver.modules.user.service.UserService;
@@ -27,7 +29,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
 
-    private final GitHubClient gitHubClient;
+    private final GitHubAuthClient gitHubAuthClient;
     private final UserService userService;
     private final TokenService tokenService;
     private final RefreshTokenRepository refreshTokenRepository;
@@ -36,17 +38,19 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponse loginWithGitHub(String code) {
-        GitHubAccessTokenResponse tokenResponse = gitHubClient.exchangeCodeForToken(code);
-        GitHubUserInfo userInfo = gitHubClient.fetchUserInfo(tokenResponse.getAccessToken());
+        GitHubAccessTokenResponse tokenResponse = gitHubAuthClient.exchangeCodeForToken(code);
+        GitHubUserInfo userInfo = gitHubAuthClient.fetchUserInfo(tokenResponse.getAccessToken());
 
-        UserEntity user = userService.findOrCreateByGitHub(
-                userInfo.getId(),
-                userInfo.getLogin(),
-                userInfo.getName(),
-                userInfo.getEmail(),
-                userInfo.getAvatarUrl(),
-                tokenResponse.getAccessToken()
-        );
+        GitHubUserData githubUserData = GitHubUserData.builder()
+                .githubId(userInfo.getId())
+                .username(userInfo.getLogin())
+                .displayName(userInfo.getName())
+                .email(userInfo.getEmail())
+                .avatarUrl(userInfo.getAvatarUrl())
+                .accessToken(tokenResponse.getAccessToken())
+                .build();
+
+        UserEntity user = userService.findOrCreateByGitHub(githubUserData);
 
         return generateAuthResponse(user);
     }
@@ -104,6 +108,12 @@ public class AuthServiceImpl implements AuthService {
                 .refreshToken(refreshToken)
                 .user(userMapper.toResponse(user))
                 .build();
+    }
+
+    @Override
+    public UserResponse me(UUID userId) {
+        UserEntity user = userService.findById(userId);
+        return userMapper.toResponse(user);
     }
 
     private String hashToken(String token) {

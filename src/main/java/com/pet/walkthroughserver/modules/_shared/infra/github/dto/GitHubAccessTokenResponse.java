@@ -1,4 +1,4 @@
-package com.pet.walkthroughserver.modules.common.github.dto;
+package com.pet.walkthroughserver.modules._shared.infra.github.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;

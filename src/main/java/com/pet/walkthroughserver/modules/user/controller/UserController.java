@@ -1,6 +1,6 @@
 package com.pet.walkthroughserver.modules.user.controller;
 
-import com.pet.walkthroughserver.modules.common.dto.ApiResponse;
+import com.pet.walkthroughserver.modules._shared.dto.ApiResponse;
 import com.pet.walkthroughserver.modules.user.dto.UserResponse;
 import com.pet.walkthroughserver.modules.user.service.UserService;
 import com.pet.walkthroughserver.security.AuthUser;

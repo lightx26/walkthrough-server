@@ -1,6 +1,7 @@
 package com.pet.walkthroughserver.modules.user.service;
 
 import com.pet.walkthroughserver.exceptions.AppException;
+import com.pet.walkthroughserver.modules.user.dto.GitHubUserData;
 import com.pet.walkthroughserver.modules.user.dto.UserResponse;
 import com.pet.walkthroughserver.modules.user.entity.UserEntity;
 import com.pet.walkthroughserver.modules.user.mapper.UserMapper;
@@ -26,25 +27,24 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public UserEntity findOrCreateByGitHub(Long githubId, String username, String displayName,
-                                            String email, String avatarUrl, String accessToken) {
-        return userRepository.findByGithubId(githubId)
+    public UserEntity findOrCreateByGitHub(GitHubUserData data) {
+        return userRepository.findByGithubId(data.githubId())
                 .map(existing -> {
-                    existing.setUsername(username);
-                    existing.setDisplayName(displayName);
-                    existing.setEmail(email);
-                    existing.setAvatarUrl(avatarUrl);
-                    existing.setGithubAccessToken(accessToken);
+                    existing.setUsername(data.username());
+                    existing.setDisplayName(data.displayName());
+                    existing.setEmail(data.email());
+                    existing.setAvatarUrl(data.avatarUrl());
+                    existing.setGithubAccessToken(data.accessToken());
                     return userRepository.save(existing);
                 })
                 .orElseGet(() -> {
                     UserEntity newUser = UserEntity.builder()
-                            .githubId(githubId)
-                            .username(username)
-                            .displayName(displayName)
-                            .email(email)
-                            .avatarUrl(avatarUrl)
-                            .githubAccessToken(accessToken)
+                            .githubId(data.githubId())
+                            .username(data.username())
+                            .displayName(data.displayName())
+                            .email(data.email())
+                            .avatarUrl(data.avatarUrl())
+                            .githubAccessToken(data.accessToken())
                             .build();
                     return userRepository.save(newUser);
                 });

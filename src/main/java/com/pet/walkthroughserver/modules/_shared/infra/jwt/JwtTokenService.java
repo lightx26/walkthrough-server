@@ -1,4 +1,4 @@
-package com.pet.walkthroughserver.modules.common.jwt;
+package com.pet.walkthroughserver.modules._shared.infra.jwt;
 
 import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
@@ -14,12 +14,14 @@ import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
-public class JwtService implements TokenService {
+public class JwtTokenService implements TokenService {
 
     @Value("${jwt.expiry.access-token}")
     private long accessTokenExpirySeconds;
+
     @Value("${jwt.expiry.refresh-token}")
     private long refreshTokenExpirySeconds;
+
     @Value("${jwt.issuer}")
     private String issuer;
 

@@ -1,6 +1,7 @@
 package com.pet.walkthroughserver.configs;
 
-import com.pet.walkthroughserver.modules.common.jwt.TokenService;
+import com.pet.walkthroughserver.modules._shared.infra.cookie.CookieService;
+import com.pet.walkthroughserver.modules._shared.infra.jwt.TokenService;
 import com.pet.walkthroughserver.security.JwtAuthenticationFilter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -36,8 +37,8 @@ public class SecurityConfig {
     }
 
     @Bean
-    public JwtAuthenticationFilter jwtFilter(TokenService tokenService) {
-        return new JwtAuthenticationFilter(tokenService);
+    public JwtAuthenticationFilter jwtFilter(TokenService tokenService, CookieService cookieService) {
+        return new JwtAuthenticationFilter(tokenService, cookieService);
     }
 
     @Bean

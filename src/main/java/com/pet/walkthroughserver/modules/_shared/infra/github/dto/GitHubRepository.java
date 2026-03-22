@@ -1,7 +1,6 @@
-package com.pet.walkthroughserver.modules.common.github.dto;
+package com.pet.walkthroughserver.modules._shared.infra.github.dto;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -20,11 +19,6 @@ public class GitHubRepository {
 
     private String description;
 
-    // Lombok generates isPrivate() for boolean fields named "isPrivate".
-    // Jackson strips the "is" prefix → serializes as "private" by default.
-    // @JsonProperty("isPrivate") forces serialization key to "isPrivate".
-    // @JsonAlias("private") lets deserialization accept GitHub's "private" key.
-    @JsonProperty("isPrivate")
     @JsonAlias("private")
     private boolean isPrivate;
 

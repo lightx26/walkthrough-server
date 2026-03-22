@@ -1,11 +1,11 @@
-package com.pet.walkthroughserver.modules.common.github;
+package com.pet.walkthroughserver.modules._shared.infra.github;
 
 import com.pet.walkthroughserver.exceptions.AppException;
-import com.pet.walkthroughserver.modules.common.github.dto.GitHubAccessTokenResponse;
-import com.pet.walkthroughserver.modules.common.github.dto.GitHubPullRequest;
-import com.pet.walkthroughserver.modules.common.github.dto.GitHubRepository;
-import com.pet.walkthroughserver.modules.common.github.dto.GitHubSearchReposResponse;
-import com.pet.walkthroughserver.modules.common.github.dto.GitHubUserInfo;
+import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubAccessTokenResponse;
+import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequest;
+import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubRepository;
+import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubSearchReposResponse;
+import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubUserInfo;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,7 +19,7 @@ import java.util.List;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class GitHubClientImpl implements GitHubClient {
+public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient {
 
     private static final String GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token";
     private static final String GITHUB_API_URL = "https://api.github.com";
@@ -32,6 +32,8 @@ public class GitHubClientImpl implements GitHubClient {
 
     @Value("${github.oauth.client-secret}")
     private String clientSecret;
+
+    // ── GitHubAuthClient ──────────────────────────────────────────────
 
     @Override
     public GitHubAccessTokenResponse exchangeCodeForToken(String code) {
@@ -69,6 +71,8 @@ public class GitHubClientImpl implements GitHubClient {
 
         return userInfo;
     }
+
+    // ── GitHubResourceClient ──────────────────────────────────────────
 
     @Override
     public List<GitHubRepository> fetchUserRepositories(String accessToken, int page, int perPage, String sort) {

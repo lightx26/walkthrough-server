@@ -1,4 +1,4 @@
-package com.pet.walkthroughserver.modules.common.email;
+package com.pet.walkthroughserver.modules._shared.infra.email;
 
 import jakarta.mail.MessagingException;
 import jakarta.mail.Multipart;
@@ -60,4 +60,3 @@ public class EmailServiceImpl implements EmailService {
         return bodyPart;
     }
 }
-

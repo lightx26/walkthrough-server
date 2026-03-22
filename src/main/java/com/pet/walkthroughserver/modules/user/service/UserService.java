@@ -1,5 +1,6 @@
 package com.pet.walkthroughserver.modules.user.service;
 
+import com.pet.walkthroughserver.modules.user.dto.GitHubUserData;
 import com.pet.walkthroughserver.modules.user.dto.UserResponse;
 import com.pet.walkthroughserver.modules.user.entity.UserEntity;
 
@@ -9,8 +10,13 @@ public interface UserService {
 
     UserEntity findById(UUID id);
 
-    UserEntity findOrCreateByGitHub(Long githubId, String username, String displayName,
-                                     String email, String avatarUrl, String accessToken);
+    /**
+     * Finds an existing user by GitHub ID or creates a new one.
+     *
+     * @param githubUserData encapsulated GitHub user information
+     * @return the found or newly created user entity
+     */
+    UserEntity findOrCreateByGitHub(GitHubUserData githubUserData);
 
     UserResponse getCurrentUser(UUID userId);
 }

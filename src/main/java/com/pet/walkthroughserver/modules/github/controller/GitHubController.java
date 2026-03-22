@@ -1,8 +1,8 @@
 package com.pet.walkthroughserver.modules.github.controller;
 
-import com.pet.walkthroughserver.modules.common.dto.ApiResponse;
-import com.pet.walkthroughserver.modules.common.github.dto.GitHubPullRequest;
-import com.pet.walkthroughserver.modules.common.github.dto.GitHubRepository;
+import com.pet.walkthroughserver.modules._shared.dto.ApiResponse;
+import com.pet.walkthroughserver.modules.github.dto.PullRequestResponse;
+import com.pet.walkthroughserver.modules.github.dto.RepositoryResponse;
 import com.pet.walkthroughserver.modules.github.service.GitHubService;
 import com.pet.walkthroughserver.security.AuthUser;
 import lombok.RequiredArgsConstructor;
@@ -21,39 +21,39 @@ public class GitHubController {
     private final GitHubService gitHubService;
 
     @GetMapping("/repos")
-    public ResponseEntity<ApiResponse<List<GitHubRepository>>> getUserRepositories(
+    public ResponseEntity<ApiResponse<List<RepositoryResponse>>> getUserRepositories(
             @AuthenticationPrincipal AuthUser authUser,
             @RequestParam(required = false) String q,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "30") int perPage,
             @RequestParam(defaultValue = "updated") String sort) {
         UUID userId = UUID.fromString(authUser.getUserId());
-        List<GitHubRepository> repos = (q != null && !q.isBlank())
+        List<RepositoryResponse> repos = (q != null && !q.isBlank())
                 ? gitHubService.searchRepositories(userId, q, page, perPage)
                 : gitHubService.getUserRepositories(userId, page, perPage, sort);
         return ResponseEntity.ok(ApiResponse.ok(repos));
     }
 
     @GetMapping("/repos/{owner}/{repo}/pulls")
-    public ResponseEntity<ApiResponse<List<GitHubPullRequest>>> getPullRequests(
+    public ResponseEntity<ApiResponse<List<PullRequestResponse>>> getPullRequests(
             @AuthenticationPrincipal AuthUser authUser,
             @PathVariable String owner,
             @PathVariable String repo,
             @RequestParam(defaultValue = "open") String state,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "30") int perPage) {
-        List<GitHubPullRequest> prs = gitHubService.getPullRequests(
+        List<PullRequestResponse> prs = gitHubService.getPullRequests(
                 UUID.fromString(authUser.getUserId()), owner, repo, state, page, perPage);
         return ResponseEntity.ok(ApiResponse.ok(prs));
     }
 
     @GetMapping("/repos/{owner}/{repo}/pulls/{pullNumber}")
-    public ResponseEntity<ApiResponse<GitHubPullRequest>> getPullRequest(
+    public ResponseEntity<ApiResponse<PullRequestResponse>> getPullRequest(
             @AuthenticationPrincipal AuthUser authUser,
             @PathVariable String owner,
             @PathVariable String repo,
             @PathVariable int pullNumber) {
-        GitHubPullRequest pr = gitHubService.getPullRequest(
+        PullRequestResponse pr = gitHubService.getPullRequest(
                 UUID.fromString(authUser.getUserId()), owner, repo, pullNumber);
         return ResponseEntity.ok(ApiResponse.ok(pr));
     }

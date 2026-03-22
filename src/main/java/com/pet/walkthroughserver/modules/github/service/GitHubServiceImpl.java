@@ -1,9 +1,11 @@
 package com.pet.walkthroughserver.modules.github.service;
 
 import com.pet.walkthroughserver.exceptions.AppException;
-import com.pet.walkthroughserver.modules.common.github.GitHubClient;
-import com.pet.walkthroughserver.modules.common.github.dto.GitHubPullRequest;
-import com.pet.walkthroughserver.modules.common.github.dto.GitHubRepository;
+import com.pet.walkthroughserver.modules._shared.infra.github.GitHubResourceClient;
+import com.pet.walkthroughserver.modules.github.dto.PullRequestResponse;
+import com.pet.walkthroughserver.modules.github.dto.RepositoryResponse;
+import com.pet.walkthroughserver.modules.github.mapper.PullRequestMapper;
+import com.pet.walkthroughserver.modules.github.mapper.RepositoryMapper;
 import com.pet.walkthroughserver.modules.user.entity.UserEntity;
 import com.pet.walkthroughserver.modules.user.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -16,35 +18,36 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class GitHubServiceImpl implements GitHubService {
 
-    private final GitHubClient gitHubClient;
+    private final GitHubResourceClient gitHubResourceClient;
     private final UserService userService;
+    private final RepositoryMapper repositoryMapper;
+    private final PullRequestMapper pullRequestMapper;
 
     @Override
-    public List<GitHubRepository> getUserRepositories(UUID userId, int page, int perPage, String sort) {
+    public List<RepositoryResponse> getUserRepositories(UUID userId, int page, int perPage, String sort) {
         String accessToken = getGitHubAccessToken(userId);
-        return gitHubClient.fetchUserRepositories(accessToken, page, perPage, sort);
+        return repositoryMapper.toResponseList(gitHubResourceClient.fetchUserRepositories(accessToken, page, perPage, sort));
     }
 
     @Override
-    public List<GitHubRepository> searchRepositories(UUID userId, String query, int page, int perPage) {
+    public List<RepositoryResponse> searchRepositories(UUID userId, String query, int page, int perPage) {
         UserEntity user = userService.findById(userId);
         String accessToken = getAccessTokenFromUser(user);
-        // Scope the search to the authenticated user's repos
         String scopedQuery = query + " user:" + user.getUsername();
-        return gitHubClient.searchRepositories(accessToken, scopedQuery, page, perPage).getItems();
+        return repositoryMapper.toResponseList(gitHubResourceClient.searchRepositories(accessToken, scopedQuery, page, perPage).getItems());
     }
 
     @Override
-    public List<GitHubPullRequest> getPullRequests(UUID userId, String owner, String repo,
-                                                    String state, int page, int perPage) {
+    public List<PullRequestResponse> getPullRequests(UUID userId, String owner, String repo,
+                                                     String state, int page, int perPage) {
         String accessToken = getGitHubAccessToken(userId);
-        return gitHubClient.fetchPullRequests(accessToken, owner, repo, state, page, perPage);
+        return pullRequestMapper.toResponseList(gitHubResourceClient.fetchPullRequests(accessToken, owner, repo, state, page, perPage));
     }
 
     @Override
-    public GitHubPullRequest getPullRequest(UUID userId, String owner, String repo, int pullNumber) {
+    public PullRequestResponse getPullRequest(UUID userId, String owner, String repo, int pullNumber) {
         String accessToken = getGitHubAccessToken(userId);
-        return gitHubClient.fetchPullRequest(accessToken, owner, repo, pullNumber);
+        return pullRequestMapper.toResponse(gitHubResourceClient.fetchPullRequest(accessToken, owner, repo, pullNumber));
     }
 
     private String getGitHubAccessToken(UUID userId) {

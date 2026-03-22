@@ -1,6 +1,7 @@
 package com.pet.walkthroughserver.security;
 
-import com.pet.walkthroughserver.modules.common.jwt.TokenService;
+import com.pet.walkthroughserver.modules._shared.infra.cookie.CookieService;
+import com.pet.walkthroughserver.modules._shared.infra.jwt.TokenService;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -10,38 +11,36 @@ import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.Collections;
 
-@Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final TokenService tokenService;
+    private final CookieService cookieService;
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
                                     @NonNull HttpServletResponse response,
                                     @NonNull FilterChain chain) throws ServletException, IOException {
-        String header = request.getHeader("Authorization");
+        String token = extractToken(request);
 
-        if (header != null && header.startsWith("Bearer ")) {
-            String token = header.substring("Bearer ".length());
+        if (token != null) {
             try {
                 if (tokenService.isValidToken(token)) {
                     String userId = tokenService.extractUserId(token);
                     String username = tokenService.extractClaim(token, "username");
-                    String firstName = tokenService.extractClaim(token, "firstName");
-                    String lastName = tokenService.extractClaim(token, "lastName");
+                    String displayName = tokenService.extractClaim(token, "displayName");
+                    String avatarUrl = tokenService.extractClaim(token, "avatarUrl");
 
                     AuthUser authUser = AuthUser.builder()
                             .userId(userId)
                             .username(username)
-                            .firstName(firstName)
-                            .lastName(lastName)
+                            .displayName(displayName)
+                            .avatarUrl(avatarUrl)
                             .build();
 
                     var auth = new UsernamePasswordAuthenticationToken(
@@ -56,6 +55,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         chain.doFilter(request, response);
     }
+
+    private String extractToken(HttpServletRequest request) {
+        // Primary: httpOnly cookie
+        String cookieToken = cookieService.extractAccessToken(request);
+        if (cookieToken != null && !cookieToken.isBlank()) {
+            return cookieToken;
+        }
+        // Fallback: Authorization header (useful for API clients / testing)
+        String header = request.getHeader("Authorization");
+        if (header != null && header.startsWith("Bearer ")) {
+            return header.substring("Bearer ".length());
+        }
+        return null;
+    }
 }
-
-
