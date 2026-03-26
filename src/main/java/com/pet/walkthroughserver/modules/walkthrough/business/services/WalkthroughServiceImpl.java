@@ -1,5 +1,13 @@
 package com.pet.walkthroughserver.modules.walkthrough.business.services;
 
+import java.util.List;
+import java.util.UUID;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequest;
+import com.pet.walkthroughserver.modules.github.business.services.GitHubService;
 import com.pet.walkthroughserver.modules.walkthrough.exceptions.WalkthroughAccessDeniedException;
 import com.pet.walkthroughserver.modules.walkthrough.exceptions.WalkthroughNotFoundException;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.AnnotationRequest;
@@ -12,22 +20,21 @@ import com.pet.walkthroughserver.modules.walkthrough.repository.ChapterEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughFileEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
 public class WalkthroughServiceImpl implements WalkthroughService {
 
     private final WalkthroughRepository walkthroughRepository;
+    private final GitHubService gitHubService;
 
     @Override
     @Transactional
-    public WalkthroughEntity create(UUID userId, CreateWalkthroughRequest request) {
+    public WalkthroughEntity create(UUID userId, String username, CreateWalkthroughRequest request) {
+        verifyPrOwnership(userId, username, request);
+
         WalkthroughEntity walkthrough = WalkthroughEntity.builder()
                 .userId(userId)
                 .owner(request.getOwner())
@@ -80,6 +87,16 @@ public class WalkthroughServiceImpl implements WalkthroughService {
     private void verifyOwnership(WalkthroughEntity walkthrough, UUID userId) {
         if (!walkthrough.getUserId().equals(userId)) {
             throw new WalkthroughAccessDeniedException("You do not own this walkthrough");
+        }
+    }
+
+    private void verifyPrOwnership(UUID userId, String username, CreateWalkthroughRequest request) {
+        GitHubPullRequest pr = gitHubService.getPullRequest(
+                userId, request.getOwner(), request.getRepo(), request.getPrNumber());
+        String prAuthorLogin = pr.getUser().getLogin();
+        if (!username.equalsIgnoreCase(prAuthorLogin)) {
+            throw new WalkthroughAccessDeniedException(
+                    "Only the PR owner can create a walkthrough for this pull request");
         }
     }
 

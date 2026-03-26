@@ -1,17 +1,8 @@
 package com.pet.walkthroughserver.modules.walkthrough.presentation;
 
-import com.pet.walkthroughserver.interceptors.DataResponse;
-import com.pet.walkthroughserver.modules._shared.dto.ListData;
-import com.pet.walkthroughserver.modules.walkthrough.business.services.WalkthroughService;
-import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.CreateWalkthroughRequest;
-import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.UpdateWalkthroughRequest;
-import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.WalkthroughResponse;
-import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.WalkthroughSummaryResponse;
-import com.pet.walkthroughserver.modules.walkthrough.presentation.mapper.WalkthroughPresentationMapper;
-import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughEntity;
-import com.pet.walkthroughserver.security.AuthUser;
-import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
+import java.util.List;
+import java.util.UUID;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -26,8 +17,19 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-import java.util.UUID;
+import com.pet.walkthroughserver.interceptors.DataResponse;
+import com.pet.walkthroughserver.modules._shared.dto.ListData;
+import com.pet.walkthroughserver.modules.walkthrough.business.services.WalkthroughService;
+import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.CreateWalkthroughRequest;
+import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.UpdateWalkthroughRequest;
+import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.WalkthroughResponse;
+import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.WalkthroughSummaryResponse;
+import com.pet.walkthroughserver.modules.walkthrough.presentation.mapper.WalkthroughPresentationMapper;
+import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughEntity;
+import com.pet.walkthroughserver.security.AuthUser;
+
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/v1/walkthroughs")
@@ -43,7 +45,7 @@ public class WalkthroughController {
             @AuthenticationPrincipal AuthUser authUser,
             @Valid @RequestBody CreateWalkthroughRequest request) {
         UUID userId = UUID.fromString(authUser.getUserId());
-        WalkthroughEntity entity = walkthroughService.create(userId, request);
+        WalkthroughEntity entity = walkthroughService.create(userId, authUser.getUsername(), request);
         WalkthroughResponse response = walkthroughMapper.toResponse(entity);
         return ResponseEntity.status(HttpStatus.CREATED).body(DataResponse.of(response));
     }

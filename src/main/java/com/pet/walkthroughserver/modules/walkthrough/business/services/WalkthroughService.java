@@ -9,7 +9,7 @@ import java.util.UUID;
 
 public interface WalkthroughService {
 
-    WalkthroughEntity create(UUID userId, CreateWalkthroughRequest request);
+    WalkthroughEntity create(UUID userId, String username, CreateWalkthroughRequest request);
 
     List<WalkthroughEntity> listByPr(String owner, String repo, Integer prNumber);
 
