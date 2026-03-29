@@ -7,10 +7,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 import lombok.experimental.SuperBuilder;
 
 import java.util.ArrayList;
@@ -49,5 +46,6 @@ public class WalkthroughEntity extends BaseEntity {
 
     @OneToMany(mappedBy = "walkthrough", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("sortOrder ASC")
+    @Builder.Default
     private List<ChapterEntity> chapters = new ArrayList<>();
 }
