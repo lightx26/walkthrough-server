@@ -8,15 +8,21 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequest;
 import com.pet.walkthroughserver.modules.github.business.services.GitHubService;
+import com.pet.walkthroughserver.modules.walkthrough.business.events.CommentCreatedEvent;
+import com.pet.walkthroughserver.modules.walkthrough.business.events.CommentEventProducer;
+import com.pet.walkthroughserver.modules.walkthrough.exceptions.CommentNotFoundException;
 import com.pet.walkthroughserver.modules.walkthrough.exceptions.WalkthroughAccessDeniedException;
 import com.pet.walkthroughserver.modules.walkthrough.exceptions.WalkthroughNotFoundException;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.AnnotationRequest;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.ChapterRequest;
+import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.CreateCommentRequest;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.CreateWalkthroughRequest;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.UpdateWalkthroughRequest;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.WalkthroughFileRequest;
 import com.pet.walkthroughserver.modules.walkthrough.repository.AnnotationEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.ChapterEntity;
+import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughCommentEntity;
+import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughCommentRepository;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughFileEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughRepository;
@@ -28,7 +34,9 @@ import lombok.RequiredArgsConstructor;
 public class WalkthroughServiceImpl implements WalkthroughService {
 
     private final WalkthroughRepository walkthroughRepository;
+    private final WalkthroughCommentRepository commentRepository;
     private final GitHubService gitHubService;
+    private final CommentEventProducer commentEventProducer;
 
     @Override
     @Transactional
@@ -83,6 +91,48 @@ public class WalkthroughServiceImpl implements WalkthroughService {
         verifyOwnership(walkthrough, userId);
         walkthroughRepository.delete(walkthrough);
     }
+
+    // ── Comments ──
+
+    @Override
+    @Transactional
+    public WalkthroughCommentEntity createComment(UUID userId, UUID walkthroughId, CreateCommentRequest request) {
+        // Verify walkthrough exists
+        getById(walkthroughId);
+
+        WalkthroughCommentEntity comment = WalkthroughCommentEntity.builder()
+                .walkthroughId(walkthroughId)
+                .userId(userId)
+                .content(request.getContent())
+                .syncStatus("pending")
+                .build();
+
+        WalkthroughCommentEntity saved = commentRepository.save(comment);
+
+        commentEventProducer.publish(CommentCreatedEvent.builder()
+                .commentId(saved.getId())
+                .walkthroughId(walkthroughId)
+                .userId(userId)
+                .content(request.getContent())
+                .build());
+
+        return saved;
+    }
+
+    @Override
+    public List<WalkthroughCommentEntity> listComments(UUID walkthroughId) {
+        return commentRepository.findByWalkthroughIdOrderByCreatedAtAsc(walkthroughId);
+    }
+
+    @Override
+    @Transactional
+    public void deleteComment(UUID userId, UUID commentId) {
+        WalkthroughCommentEntity comment = commentRepository.findByIdAndUserId(commentId, userId)
+                .orElseThrow(() -> new CommentNotFoundException("Comment not found"));
+        commentRepository.delete(comment);
+    }
+
+    // ── Private helpers ──
 
     private void verifyOwnership(WalkthroughEntity walkthrough, UUID userId) {
         if (!walkthrough.getUserId().equals(userId)) {

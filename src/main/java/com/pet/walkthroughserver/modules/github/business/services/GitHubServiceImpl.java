@@ -66,6 +66,12 @@ public class GitHubServiceImpl implements GitHubService {
         return gitHubResourceClient.fetchCommitFiles(accessToken, owner, repo, commitSha);
     }
 
+    @Override
+    public Long createPrComment(UUID userId, String owner, String repo, int prNumber, String body) {
+        String accessToken = getGitHubAccessToken(userId);
+        return gitHubResourceClient.createIssueComment(accessToken, owner, repo, prNumber, body);
+    }
+
     private String getGitHubAccessToken(UUID userId) {
         return getAccessTokenFromUser(userService.findById(userId));
     }

@@ -20,11 +20,15 @@ import org.springframework.web.bind.annotation.RestController;
 import com.pet.walkthroughserver.interceptors.DataResponse;
 import com.pet.walkthroughserver.modules._shared.dto.ListData;
 import com.pet.walkthroughserver.modules.walkthrough.business.services.WalkthroughService;
+import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.CommentResponse;
+import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.CreateCommentRequest;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.CreateWalkthroughRequest;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.UpdateWalkthroughRequest;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.WalkthroughResponse;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.WalkthroughSummaryResponse;
+import com.pet.walkthroughserver.modules.walkthrough.presentation.mapper.CommentPresentationMapper;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.mapper.WalkthroughPresentationMapper;
+import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughCommentEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughEntity;
 import com.pet.walkthroughserver.security.AuthUser;
 
@@ -38,6 +42,7 @@ public class WalkthroughController {
 
     private final WalkthroughService walkthroughService;
     private final WalkthroughPresentationMapper walkthroughMapper;
+    private final CommentPresentationMapper commentMapper;
 
     @PostMapping
     @PreAuthorize("isAuthenticated()")
@@ -88,6 +93,38 @@ public class WalkthroughController {
             @PathVariable UUID id) {
         UUID userId = UUID.fromString(authUser.getUserId());
         walkthroughService.delete(userId, id);
+        return ResponseEntity.noContent().build();
+    }
+
+    // ── Comment endpoints ──
+
+    @PostMapping("/{walkthroughId}/comments")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<DataResponse<CommentResponse>> createComment(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable UUID walkthroughId,
+            @Valid @RequestBody CreateCommentRequest request) {
+        UUID userId = UUID.fromString(authUser.getUserId());
+        WalkthroughCommentEntity entity = walkthroughService.createComment(userId, walkthroughId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(DataResponse.of(commentMapper.toResponse(entity)));
+    }
+
+    @GetMapping("/{walkthroughId}/comments")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<DataResponse<ListData<CommentResponse>>> listComments(
+            @PathVariable UUID walkthroughId) {
+        List<WalkthroughCommentEntity> entities = walkthroughService.listComments(walkthroughId);
+        return ResponseEntity.ok(DataResponse.of(ListData.of(commentMapper.toResponseList(entities))));
+    }
+
+    @DeleteMapping("/{walkthroughId}/comments/{commentId}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> deleteComment(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable UUID walkthroughId,
+            @PathVariable UUID commentId) {
+        UUID userId = UUID.fromString(authUser.getUserId());
+        walkthroughService.deleteComment(userId, commentId);
         return ResponseEntity.noContent().build();
     }
 }

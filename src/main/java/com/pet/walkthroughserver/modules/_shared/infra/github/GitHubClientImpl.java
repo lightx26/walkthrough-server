@@ -199,4 +199,26 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
 
         return detail.files();
     }
+
+    @Override
+    public Long createIssueComment(String accessToken, String owner, String repo, int issueNumber, String body) {
+        record CommentRequest(String body) {}
+        record CommentResponse(Long id) {}
+
+        CommentResponse response = restClient.post()
+                .uri(GITHUB_API_URL + "/repos/{owner}/{repo}/issues/{issueNumber}/comments",
+                        owner, repo, issueNumber)
+                .header("Authorization", "Bearer " + accessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON)
+                .body(new CommentRequest(body))
+                .retrieve()
+                .body(CommentResponse.class);
+
+        if (response == null || response.id() == null) {
+            throw new GitHubApiException("Failed to create issue comment on GitHub");
+        }
+
+        return response.id();
+    }
 }
