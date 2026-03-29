@@ -7,6 +7,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class WalkthroughServerApplication {
 
     public static void main(String[] args) {
+        System.out.println("Starting Walkthrough Server Application...");
         SpringApplication.run(WalkthroughServerApplication.class, args);
     }
 
