@@ -58,18 +58,23 @@ public class WalkthroughController {
     @GetMapping
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<DataResponse<ListData<WalkthroughSummaryResponse>>> list(
+            @AuthenticationPrincipal AuthUser authUser,
             @RequestParam String owner,
             @RequestParam String repo,
             @RequestParam Integer prNumber) {
-        List<WalkthroughEntity> entities = walkthroughService.listByPr(owner, repo, prNumber);
+        UUID userId = UUID.fromString(authUser.getUserId());
+        List<WalkthroughEntity> entities = walkthroughService.listByPr(owner, repo, prNumber, userId);
         List<WalkthroughSummaryResponse> summaries = walkthroughMapper.toSummaryResponseList(entities);
         return ResponseEntity.ok(DataResponse.of(ListData.of(summaries)));
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<DataResponse<WalkthroughResponse>> getById(@PathVariable UUID id) {
-        WalkthroughEntity entity = walkthroughService.getById(id);
+    public ResponseEntity<DataResponse<WalkthroughResponse>> getById(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable UUID id) {
+        UUID userId = UUID.fromString(authUser.getUserId());
+        WalkthroughEntity entity = walkthroughService.getById(id, userId);
         WalkthroughResponse response = walkthroughMapper.toResponse(entity);
         return ResponseEntity.ok(DataResponse.of(response));
     }

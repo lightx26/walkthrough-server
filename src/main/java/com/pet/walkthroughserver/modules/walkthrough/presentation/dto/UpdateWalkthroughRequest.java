@@ -1,12 +1,15 @@
 package com.pet.walkthroughserver.modules.walkthrough.presentation.dto;
 
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
-import lombok.Getter;
-import lombok.Setter;
-
 import java.util.ArrayList;
 import java.util.List;
+
+import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughStatus;
+
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import lombok.Getter;
+import lombok.Setter;
 
 @Getter
 @Setter
@@ -17,8 +20,8 @@ public class UpdateWalkthroughRequest {
 
     private String description;
 
-    @NotBlank
-    private String status;
+    @NotNull
+    private WalkthroughStatus status;
 
     @Valid
     private List<ChapterRequest> chapters = new ArrayList<>();

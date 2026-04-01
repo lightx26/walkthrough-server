@@ -1,13 +1,15 @@
 package com.pet.walkthroughserver.modules.walkthrough.presentation.dto;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughStatus;
+
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
-
-import java.util.ArrayList;
-import java.util.List;
 
 @Getter
 @Setter
@@ -26,6 +28,9 @@ public class CreateWalkthroughRequest {
     private String title;
 
     private String description;
+
+    @NotNull
+    private WalkthroughStatus status;
 
     @Valid
     private List<ChapterRequest> chapters = new ArrayList<>();

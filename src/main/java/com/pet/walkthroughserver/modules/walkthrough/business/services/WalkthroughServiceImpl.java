@@ -26,6 +26,7 @@ import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughComme
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughFileEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughRepository;
+import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughStatus;
 
 import lombok.RequiredArgsConstructor;
 
@@ -50,7 +51,7 @@ public class WalkthroughServiceImpl implements WalkthroughService {
                 .prNumber(request.getPrNumber())
                 .title(request.getTitle())
                 .description(request.getDescription())
-                .status("draft")
+                .status(request.getStatus())
                 .build();
 
         buildChapters(walkthrough, request.getChapters());
@@ -58,21 +59,27 @@ public class WalkthroughServiceImpl implements WalkthroughService {
     }
 
     @Override
-    public List<WalkthroughEntity> listByPr(String owner, String repo, Integer prNumber) {
-        return walkthroughRepository.findByOwnerAndRepoAndPrNumberOrderByCreatedAtDesc(
-                owner, repo, prNumber);
+    public List<WalkthroughEntity> listByPr(String owner, String repo, Integer prNumber, UUID requestingUserId) {
+        return walkthroughRepository.findByOwnerAndRepoAndPrNumberOrderByCreatedAtDesc(owner, repo, prNumber)
+                .stream()
+                .filter(wt -> wt.getStatus() == WalkthroughStatus.PUBLISHED || wt.getUserId().equals(requestingUserId))
+                .toList();
     }
 
     @Override
-    public WalkthroughEntity getById(UUID id) {
-        return walkthroughRepository.findById(id)
+    public WalkthroughEntity getById(UUID id, UUID requestingUserId) {
+        WalkthroughEntity walkthrough = walkthroughRepository.findById(id)
                 .orElseThrow(() -> new WalkthroughNotFoundException("Walkthrough not found"));
+        if (walkthrough.getStatus() == WalkthroughStatus.DRAFT && !walkthrough.getUserId().equals(requestingUserId)) {
+            throw new WalkthroughNotFoundException("Walkthrough not found");
+        }
+        return walkthrough;
     }
 
     @Override
     @Transactional
     public WalkthroughEntity update(UUID userId, UUID walkthroughId, UpdateWalkthroughRequest request) {
-        WalkthroughEntity walkthrough = getById(walkthroughId);
+        WalkthroughEntity walkthrough = findWalkthroughById(walkthroughId);
         verifyOwnership(walkthrough, userId);
 
         walkthrough.setTitle(request.getTitle());
@@ -87,7 +94,7 @@ public class WalkthroughServiceImpl implements WalkthroughService {
     @Override
     @Transactional
     public void delete(UUID userId, UUID walkthroughId) {
-        WalkthroughEntity walkthrough = getById(walkthroughId);
+        WalkthroughEntity walkthrough = findWalkthroughById(walkthroughId);
         verifyOwnership(walkthrough, userId);
         walkthroughRepository.delete(walkthrough);
     }
@@ -98,7 +105,7 @@ public class WalkthroughServiceImpl implements WalkthroughService {
     @Transactional
     public WalkthroughCommentEntity createComment(UUID userId, UUID walkthroughId, CreateCommentRequest request) {
         // Verify walkthrough exists
-        getById(walkthroughId);
+        findWalkthroughById(walkthroughId);
 
         WalkthroughCommentEntity comment = WalkthroughCommentEntity.builder()
                 .walkthroughId(walkthroughId)
@@ -133,6 +140,11 @@ public class WalkthroughServiceImpl implements WalkthroughService {
     }
 
     // ── Private helpers ──
+
+    private WalkthroughEntity findWalkthroughById(UUID id) {
+        return walkthroughRepository.findById(id)
+                .orElseThrow(() -> new WalkthroughNotFoundException("Walkthrough not found"));
+    }
 
     private void verifyOwnership(WalkthroughEntity walkthrough, UUID userId) {
         if (!walkthrough.getUserId().equals(userId)) {
