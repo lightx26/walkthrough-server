@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c \":*)",
+      "Bash(python -c \":*)",
+      "Bash(rm -f src/main/java/com/pet/walkthroughserver/modules/user/entity/UserEntity.java)",
+      "Bash(rm -f src/main/java/com/pet/walkthroughserver/modules/user/dto/UserResponse.java)",
+      "Bash(rm -f src/main/java/com/pet/walkthroughserver/modules/user/dto/GitHubUserData.java)",
+      "Bash(rm -f src/main/java/com/pet/walkthroughserver/modules/user/mapper/UserMapper.java)",
+      "Bash(rm -f src/main/java/com/pet/walkthroughserver/modules/user/service/UserService.java)",
+      "Bash(rm -f src/main/java/com/pet/walkthroughserver/modules/auth/entity/RefreshTokenEntity.java)",
+      "Bash(rm -f src/main/java/com/pet/walkthroughserver/modules/auth/dto/AuthResponse.java)",
+      "Bash(rm -f src/main/java/com/pet/walkthroughserver/modules/auth/dto/GitHubOAuthRequest.java)",
+      "Bash(rm -f src/main/java/com/pet/walkthroughserver/modules/auth/dto/RefreshTokenRequest.java)",
+      "Bash(rm -f src/main/java/com/pet/walkthroughserver/modules/auth/service/AuthService.java)",
+      "Bash(rm -f src/main/java/com/pet/walkthroughserver/modules/github/dto/RepositoryResponse.java)",
+      "Bash(rm -f src/main/java/com/pet/walkthroughserver/modules/github/dto/PullRequestResponse.java)",
+      "Bash(rm -f src/main/java/com/pet/walkthroughserver/modules/github/mapper/RepositoryMapper.java)",
+      "Bash(rm -f src/main/java/com/pet/walkthroughserver/modules/github/mapper/PullRequestMapper.java)",
+      "Bash(rm -f src/main/java/com/pet/walkthroughserver/modules/github/service/GitHubService.java)",
+      "Bash(./gradlew build:*)"
+    ]
+  }
+}
