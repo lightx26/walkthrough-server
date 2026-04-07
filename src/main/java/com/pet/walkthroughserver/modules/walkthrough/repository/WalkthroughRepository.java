@@ -11,4 +11,8 @@ public interface WalkthroughRepository extends JpaRepository<WalkthroughEntity, 
 
     List<WalkthroughEntity> findByOwnerAndRepoAndPrNumberOrderByCreatedAtDesc(
             String owner, String repo, Integer prNumber);
+
+    List<WalkthroughEntity> findTop10ByUserIdOrderByUpdatedAtDesc(UUID userId);
+
+    List<WalkthroughEntity> findTop10ByStatusOrderByUpdatedAtDesc(WalkthroughStatus status);
 }

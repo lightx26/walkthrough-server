@@ -1,5 +1,6 @@
 package com.pet.walkthroughserver.modules.walkthrough.business.services;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -17,10 +18,15 @@ import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.Annotation
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.ChapterRequest;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.CreateCommentRequest;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.CreateWalkthroughRequest;
+import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.RecordChapterViewRequest;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.UpdateWalkthroughRequest;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.WalkthroughFileRequest;
 import com.pet.walkthroughserver.modules.walkthrough.repository.AnnotationEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.ChapterEntity;
+import com.pet.walkthroughserver.modules.walkthrough.repository.ChapterViewEventEntity;
+import com.pet.walkthroughserver.modules.walkthrough.repository.ChapterViewEventRepository;
+import com.pet.walkthroughserver.modules.walkthrough.repository.ReadProgressEntity;
+import com.pet.walkthroughserver.modules.walkthrough.repository.ReadProgressRepository;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughCommentEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughCommentRepository;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughEntity;
@@ -36,6 +42,8 @@ public class WalkthroughServiceImpl implements WalkthroughService {
 
     private final WalkthroughRepository walkthroughRepository;
     private final WalkthroughCommentRepository commentRepository;
+    private final ChapterViewEventRepository chapterViewEventRepository;
+    private final ReadProgressRepository readProgressRepository;
     private final GitHubService gitHubService;
     private final CommentEventProducer commentEventProducer;
 
@@ -64,6 +72,11 @@ public class WalkthroughServiceImpl implements WalkthroughService {
                 .stream()
                 .filter(wt -> wt.getStatus() == WalkthroughStatus.PUBLISHED || wt.getUserId().equals(requestingUserId))
                 .toList();
+    }
+
+    @Override
+    public List<WalkthroughEntity> listRecent(UUID userId) {
+        return walkthroughRepository.findTop10ByUserIdOrderByUpdatedAtDesc(userId);
     }
 
     @Override
@@ -104,31 +117,52 @@ public class WalkthroughServiceImpl implements WalkthroughService {
     @Override
     @Transactional
     public WalkthroughCommentEntity createComment(UUID userId, UUID walkthroughId, CreateCommentRequest request) {
-        // Verify walkthrough exists
         findWalkthroughById(walkthroughId);
 
         WalkthroughCommentEntity comment = WalkthroughCommentEntity.builder()
                 .walkthroughId(walkthroughId)
                 .userId(userId)
                 .content(request.getContent())
+                .chapterId(request.getChapterId())
+                .walkthroughFileId(request.getWalkthroughFileId())
+                .diffPosition(request.getDiffPosition())
+                .parentId(request.getParentId())
                 .syncStatus("pending")
                 .build();
 
         WalkthroughCommentEntity saved = commentRepository.save(comment);
 
-        commentEventProducer.publish(CommentCreatedEvent.builder()
-                .commentId(saved.getId())
-                .walkthroughId(walkthroughId)
-                .userId(userId)
-                .content(request.getContent())
-                .build());
+        // Only publish sync event for line-level comments (those with a file + position)
+        if (request.getWalkthroughFileId() != null && request.getDiffPosition() != null) {
+            commentEventProducer.publish(CommentCreatedEvent.builder()
+                    .commentId(saved.getId())
+                    .walkthroughId(walkthroughId)
+                    .userId(userId)
+                    .content(request.getContent())
+                    .build());
+        }
 
         return saved;
     }
 
     @Override
     public List<WalkthroughCommentEntity> listComments(UUID walkthroughId) {
-        return commentRepository.findByWalkthroughIdOrderByCreatedAtAsc(walkthroughId);
+        return commentRepository.findByWalkthroughIdAndParentIdIsNullOrderByCreatedAtAsc(walkthroughId);
+    }
+
+    @Override
+    public List<WalkthroughCommentEntity> listFileComments(UUID walkthroughFileId) {
+        return commentRepository.findByWalkthroughFileIdAndParentIdIsNullOrderByCreatedAtAsc(walkthroughFileId);
+    }
+
+    @Override
+    public List<WalkthroughCommentEntity> listChapterComments(UUID chapterId) {
+        return commentRepository.findByChapterIdAndWalkthroughFileIdIsNullAndParentIdIsNullOrderByCreatedAtAsc(chapterId);
+    }
+
+    @Override
+    public List<WalkthroughCommentEntity> listReplies(UUID parentId) {
+        return commentRepository.findByParentIdOrderByCreatedAtAsc(parentId);
     }
 
     @Override
@@ -137,6 +171,84 @@ public class WalkthroughServiceImpl implements WalkthroughService {
         WalkthroughCommentEntity comment = commentRepository.findByIdAndUserId(commentId, userId)
                 .orElseThrow(() -> new CommentNotFoundException("Comment not found"));
         commentRepository.delete(comment);
+    }
+
+    // ── Reading Progress ──
+
+    @Override
+    @Transactional
+    public ChapterViewEventEntity recordChapterView(UUID userId, UUID walkthroughId, RecordChapterViewRequest request) {
+        WalkthroughEntity walkthrough = findWalkthroughById(walkthroughId);
+
+        // Authors reviewing their own walkthrough should not generate progress records
+        if (walkthrough.getUserId().equals(userId)) {
+            return null;
+        }
+
+        // Check first visit BEFORE saving the new event
+        boolean isFirstVisit = !chapterViewEventRepository.existsByChapterIdAndUserId(
+                request.getChapterId(), userId);
+
+        ChapterViewEventEntity event = ChapterViewEventEntity.builder()
+                .chapterId(request.getChapterId())
+                .userId(userId)
+                .timeSpentSec(request.getTimeSpentSec() != null ? request.getTimeSpentSec() : 0)
+                .scrolledToBottom(request.getScrolledToBottom() != null ? request.getScrolledToBottom() : false)
+                .viewedAt(Instant.now())
+                .build();
+
+        ChapterViewEventEntity saved = chapterViewEventRepository.save(event);
+
+        // Upsert read_progress
+        ReadProgressEntity progress = readProgressRepository
+                .findByUserIdAndWalkthroughId(userId, walkthroughId)
+                .orElse(ReadProgressEntity.builder()
+                        .userId(userId)
+                        .walkthroughId(walkthroughId)
+                        .readChapters(0)
+                        .totalChapters(walkthrough.getChapters().size())
+                        .timeSpentSec(0)
+                        .readAt(Instant.now())
+                        .build());
+
+        progress.setLastChapterId(request.getChapterId());
+        progress.setTotalChapters(walkthrough.getChapters().size());
+        progress.setTimeSpentSec(progress.getTimeSpentSec() +
+                (request.getTimeSpentSec() != null ? request.getTimeSpentSec() : 0));
+        progress.setReadAt(Instant.now());
+
+        if (isFirstVisit) {
+            progress.setReadChapters(progress.getReadChapters() + 1);
+        }
+
+        readProgressRepository.save(progress);
+
+        return saved;
+    }
+
+    @Override
+    public List<ReadProgressEntity> listRecentlyReviewed(UUID userId) {
+        return readProgressRepository.findTop10ByUserIdOrderByReadAtDesc(userId)
+                .stream()
+                .filter(rp -> {
+                    WalkthroughEntity wt = walkthroughRepository.findById(rp.getWalkthroughId()).orElse(null);
+                    return wt != null && !wt.getUserId().equals(userId);
+                })
+                .toList();
+    }
+
+    @Override
+    public ReadProgressEntity getReadProgress(UUID userId, UUID walkthroughId) {
+        return readProgressRepository
+                .findByUserIdAndWalkthroughId(userId, walkthroughId)
+                .orElse(ReadProgressEntity.builder()
+                        .userId(userId)
+                        .walkthroughId(walkthroughId)
+                        .readChapters(0)
+                        .totalChapters(0)
+                        .timeSpentSec(0)
+                        .readAt(Instant.now())
+                        .build());
     }
 
     // ── Private helpers ──

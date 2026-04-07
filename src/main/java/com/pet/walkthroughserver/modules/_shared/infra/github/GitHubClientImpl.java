@@ -201,6 +201,25 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
     }
 
     @Override
+    public List<GitHubPullRequest> searchUserPullRequests(String accessToken, String username, int perPage) {
+        record SearchResponse(List<GitHubPullRequest> items) {}
+
+        SearchResponse response = restClient.get()
+                .uri(GITHUB_API_URL + "/search/issues?q=type:pr+author:{username}+sort:updated&per_page={perPage}",
+                        username, perPage)
+                .header("Authorization", "Bearer " + accessToken)
+                .accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .body(SearchResponse.class);
+
+        if (response == null || response.items() == null) {
+            throw new GitHubApiException("Failed to search pull requests on GitHub");
+        }
+
+        return response.items();
+    }
+
+    @Override
     public Long createIssueComment(String accessToken, String owner, String repo, int issueNumber, String body) {
         record CommentRequest(String body) {}
         record CommentResponse(Long id) {}

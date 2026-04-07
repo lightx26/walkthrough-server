@@ -25,4 +25,6 @@ public interface GitHubService {
     List<GitHubPullRequestFile> getCommitFiles(UUID userId, String owner, String repo, String commitSha);
 
     Long createPrComment(UUID userId, String owner, String repo, int prNumber, String body);
+
+    List<GitHubPullRequest> getRecentPullRequests(UUID userId, int perPage);
 }

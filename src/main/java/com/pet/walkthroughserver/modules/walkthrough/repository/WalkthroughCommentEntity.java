@@ -31,6 +31,18 @@ public class WalkthroughCommentEntity extends BaseEntity {
     @Column(name = "content", nullable = false, columnDefinition = "TEXT")
     private String content;
 
+    @Column(name = "chapter_id")
+    private UUID chapterId;
+
+    @Column(name = "walkthrough_file_id")
+    private UUID walkthroughFileId;
+
+    @Column(name = "diff_position")
+    private Integer diffPosition;
+
+    @Column(name = "parent_id")
+    private UUID parentId;
+
     @Column(name = "github_comment_id")
     private Long githubCommentId;
 

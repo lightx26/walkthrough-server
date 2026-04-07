@@ -13,6 +13,7 @@ public interface CommentPresentationMapper {
 
     @Mapping(source = "user.username", target = "username")
     @Mapping(source = "user.avatarUrl", target = "avatarUrl")
+    @Mapping(target = "replies", ignore = true)
     CommentResponse toResponse(WalkthroughCommentEntity entity);
 
     List<CommentResponse> toResponseList(List<WalkthroughCommentEntity> entities);

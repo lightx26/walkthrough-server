@@ -29,4 +29,6 @@ public interface GitHubResourceClient {
     List<GitHubPullRequestFile> fetchCommitFiles(String accessToken, String owner, String repo, String commitSha);
 
     Long createIssueComment(String accessToken, String owner, String repo, int issueNumber, String body);
+
+    List<GitHubPullRequest> searchUserPullRequests(String accessToken, String username, int perPage);
 }

@@ -72,6 +72,13 @@ public class GitHubServiceImpl implements GitHubService {
         return gitHubResourceClient.createIssueComment(accessToken, owner, repo, prNumber, body);
     }
 
+    @Override
+    public List<GitHubPullRequest> getRecentPullRequests(UUID userId, int perPage) {
+        UserEntity user = userService.findById(userId);
+        String accessToken = getAccessTokenFromUser(user);
+        return gitHubResourceClient.searchUserPullRequests(accessToken, user.getUsername(), perPage);
+    }
+
     private String getGitHubAccessToken(UUID userId) {
         return getAccessTokenFromUser(userService.findById(userId));
     }

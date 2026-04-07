@@ -10,6 +10,7 @@ import com.pet.walkthroughserver.modules.github.business.services.GitHubService;
 import com.pet.walkthroughserver.modules.github.presentation.dto.CommitResponse;
 import com.pet.walkthroughserver.modules.github.presentation.dto.FileChangeResponse;
 import com.pet.walkthroughserver.modules.github.presentation.dto.PullRequestResponse;
+import com.pet.walkthroughserver.modules.github.presentation.dto.RecentPullRequestResponse;
 import com.pet.walkthroughserver.modules.github.presentation.dto.RepositoryResponse;
 import com.pet.walkthroughserver.modules.github.presentation.mapper.CommitPresentationMapper;
 import com.pet.walkthroughserver.modules.github.presentation.mapper.FileChangePresentationMapper;
@@ -24,6 +25,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @RestController
 @RequestMapping("/v1/github")
@@ -111,5 +114,49 @@ public class GitHubController {
         List<GitHubPullRequestFile> files = gitHubService.getCommitFiles(
                 UUID.fromString(authUser.getUserId()), owner, repo, commitSha);
         return ResponseEntity.ok(DataResponse.of(ListData.of(fileChangeMapper.toResponseList(files))));
+    }
+
+    @GetMapping("/pulls/recent")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<DataResponse<ListData<RecentPullRequestResponse>>> getRecentPullRequests(
+            @AuthenticationPrincipal AuthUser authUser,
+            @RequestParam(defaultValue = "10") int perPage) {
+        UUID userId = UUID.fromString(authUser.getUserId());
+        List<GitHubPullRequest> prs = gitHubService.getRecentPullRequests(userId, perPage);
+        List<RecentPullRequestResponse> responses = prs.stream()
+                .map(this::toRecentPrResponse)
+                .toList();
+        return ResponseEntity.ok(DataResponse.of(ListData.of(responses)));
+    }
+
+    private static final Pattern GITHUB_PR_URL_PATTERN =
+            Pattern.compile("https://github\\.com/([^/]+)/([^/]+)/pull/\\d+");
+
+    private RecentPullRequestResponse toRecentPrResponse(GitHubPullRequest pr) {
+        String owner = "";
+        String repo = "";
+        if (pr.getHtmlUrl() != null) {
+            Matcher matcher = GITHUB_PR_URL_PATTERN.matcher(pr.getHtmlUrl());
+            if (matcher.matches()) {
+                owner = matcher.group(1);
+                repo = matcher.group(2);
+            }
+        }
+
+        return RecentPullRequestResponse.builder()
+                .id(pr.getId())
+                .number(pr.getNumber())
+                .title(pr.getTitle())
+                .state(pr.getState())
+                .htmlUrl(pr.getHtmlUrl())
+                .createdAt(pr.getCreatedAt())
+                .updatedAt(pr.getUpdatedAt())
+                .owner(owner)
+                .repo(repo)
+                .author(pr.getUser() != null ? RecentPullRequestResponse.Author.builder()
+                        .login(pr.getUser().getLogin())
+                        .avatarUrl(pr.getUser().getAvatarUrl())
+                        .build() : null)
+                .build();
     }
 }
