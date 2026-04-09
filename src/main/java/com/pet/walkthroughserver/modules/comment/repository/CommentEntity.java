@@ -1,17 +1,21 @@
 package com.pet.walkthroughserver.modules.comment.repository;
 
+import java.util.UUID;
+
 import com.pet.walkthroughserver.modules._shared.entity.BaseEntity;
 import com.pet.walkthroughserver.modules.user.repository.UserEntity;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import lombok.experimental.SuperBuilder;
-
-import java.util.UUID;
 
 @Entity
 @Table(name = "walkthrough_comments")
