@@ -1,4 +1,4 @@
-package com.pet.walkthroughserver.modules.walkthrough.presentation.dto;
+package com.pet.walkthroughserver.modules.comment.presentation.dto;
 
 import lombok.Builder;
 import lombok.Getter;

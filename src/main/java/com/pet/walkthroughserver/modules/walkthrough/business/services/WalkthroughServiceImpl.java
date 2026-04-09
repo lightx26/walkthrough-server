@@ -9,14 +9,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequest;
 import com.pet.walkthroughserver.modules.github.business.services.GitHubService;
-import com.pet.walkthroughserver.modules.walkthrough.business.events.CommentCreatedEvent;
-import com.pet.walkthroughserver.modules.walkthrough.business.events.CommentEventProducer;
-import com.pet.walkthroughserver.modules.walkthrough.exceptions.CommentNotFoundException;
 import com.pet.walkthroughserver.modules.walkthrough.exceptions.WalkthroughAccessDeniedException;
 import com.pet.walkthroughserver.modules.walkthrough.exceptions.WalkthroughNotFoundException;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.AnnotationRequest;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.ChapterRequest;
-import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.CreateCommentRequest;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.CreateWalkthroughRequest;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.RecordChapterViewRequest;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.UpdateWalkthroughRequest;
@@ -27,8 +23,6 @@ import com.pet.walkthroughserver.modules.walkthrough.repository.ChapterViewEvent
 import com.pet.walkthroughserver.modules.walkthrough.repository.ChapterViewEventRepository;
 import com.pet.walkthroughserver.modules.walkthrough.repository.ReadProgressEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.ReadProgressRepository;
-import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughCommentEntity;
-import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughCommentRepository;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughFileEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughRepository;
@@ -41,16 +35,14 @@ import lombok.RequiredArgsConstructor;
 public class WalkthroughServiceImpl implements WalkthroughService {
 
     private final WalkthroughRepository walkthroughRepository;
-    private final WalkthroughCommentRepository commentRepository;
     private final ChapterViewEventRepository chapterViewEventRepository;
     private final ReadProgressRepository readProgressRepository;
     private final GitHubService gitHubService;
-    private final CommentEventProducer commentEventProducer;
 
     @Override
     @Transactional
     public WalkthroughEntity create(UUID userId, String username, CreateWalkthroughRequest request) {
-        verifyPrOwnership(userId, username, request);
+        GitHubPullRequest pr = verifyPrOwnership(userId, username, request);
 
         WalkthroughEntity walkthrough = WalkthroughEntity.builder()
                 .userId(userId)
@@ -60,6 +52,7 @@ public class WalkthroughServiceImpl implements WalkthroughService {
                 .title(request.getTitle())
                 .description(request.getDescription())
                 .status(request.getStatus())
+                .commitSha(pr.getHead() != null ? pr.getHead().getSha() : null)
                 .build();
 
         buildChapters(walkthrough, request.getChapters());
@@ -110,67 +103,6 @@ public class WalkthroughServiceImpl implements WalkthroughService {
         WalkthroughEntity walkthrough = findWalkthroughById(walkthroughId);
         verifyOwnership(walkthrough, userId);
         walkthroughRepository.delete(walkthrough);
-    }
-
-    // ── Comments ──
-
-    @Override
-    @Transactional
-    public WalkthroughCommentEntity createComment(UUID userId, UUID walkthroughId, CreateCommentRequest request) {
-        findWalkthroughById(walkthroughId);
-
-        WalkthroughCommentEntity comment = WalkthroughCommentEntity.builder()
-                .walkthroughId(walkthroughId)
-                .userId(userId)
-                .content(request.getContent())
-                .chapterId(request.getChapterId())
-                .walkthroughFileId(request.getWalkthroughFileId())
-                .diffPosition(request.getDiffPosition())
-                .parentId(request.getParentId())
-                .syncStatus("pending")
-                .build();
-
-        WalkthroughCommentEntity saved = commentRepository.save(comment);
-
-        // Only publish sync event for line-level comments (those with a file + position)
-        if (request.getWalkthroughFileId() != null && request.getDiffPosition() != null) {
-            commentEventProducer.publish(CommentCreatedEvent.builder()
-                    .commentId(saved.getId())
-                    .walkthroughId(walkthroughId)
-                    .userId(userId)
-                    .content(request.getContent())
-                    .build());
-        }
-
-        return saved;
-    }
-
-    @Override
-    public List<WalkthroughCommentEntity> listComments(UUID walkthroughId) {
-        return commentRepository.findByWalkthroughIdAndParentIdIsNullOrderByCreatedAtAsc(walkthroughId);
-    }
-
-    @Override
-    public List<WalkthroughCommentEntity> listFileComments(UUID walkthroughFileId) {
-        return commentRepository.findByWalkthroughFileIdAndParentIdIsNullOrderByCreatedAtAsc(walkthroughFileId);
-    }
-
-    @Override
-    public List<WalkthroughCommentEntity> listChapterComments(UUID chapterId) {
-        return commentRepository.findByChapterIdAndWalkthroughFileIdIsNullAndParentIdIsNullOrderByCreatedAtAsc(chapterId);
-    }
-
-    @Override
-    public List<WalkthroughCommentEntity> listReplies(UUID parentId) {
-        return commentRepository.findByParentIdOrderByCreatedAtAsc(parentId);
-    }
-
-    @Override
-    @Transactional
-    public void deleteComment(UUID userId, UUID commentId) {
-        WalkthroughCommentEntity comment = commentRepository.findByIdAndUserId(commentId, userId)
-                .orElseThrow(() -> new CommentNotFoundException("Comment not found"));
-        commentRepository.delete(comment);
     }
 
     // ── Reading Progress ──
@@ -264,7 +196,7 @@ public class WalkthroughServiceImpl implements WalkthroughService {
         }
     }
 
-    private void verifyPrOwnership(UUID userId, String username, CreateWalkthroughRequest request) {
+    private GitHubPullRequest verifyPrOwnership(UUID userId, String username, CreateWalkthroughRequest request) {
         GitHubPullRequest pr = gitHubService.getPullRequest(
                 userId, request.getOwner(), request.getRepo(), request.getPrNumber());
         String prAuthorLogin = pr.getUser().getLogin();
@@ -272,6 +204,7 @@ public class WalkthroughServiceImpl implements WalkthroughService {
             throw new WalkthroughAccessDeniedException(
                     "Only the PR owner can create a walkthrough for this pull request");
         }
+        return pr;
     }
 
     private void buildChapters(WalkthroughEntity walkthrough, List<ChapterRequest> chapterRequests) {
@@ -297,6 +230,7 @@ public class WalkthroughServiceImpl implements WalkthroughService {
                     .filename(fr.getFilename())
                     .fileSha(fr.getFileSha())
                     .fileStatus(fr.getFileStatus())
+                    .rawPatch(fr.getRawPatch())
                     .sortOrder(i)
                     .build();
 

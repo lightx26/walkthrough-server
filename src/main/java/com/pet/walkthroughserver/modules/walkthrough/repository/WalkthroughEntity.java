@@ -43,6 +43,9 @@ public class WalkthroughEntity extends BaseEntity {
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
+    @Column(name = "commit_sha", length = 255)
+    private String commitSha;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     private WalkthroughStatus status;

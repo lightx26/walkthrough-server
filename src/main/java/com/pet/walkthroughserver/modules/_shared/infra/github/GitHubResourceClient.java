@@ -30,5 +30,8 @@ public interface GitHubResourceClient {
 
     Long createIssueComment(String accessToken, String owner, String repo, int issueNumber, String body);
 
+    Long createPullReviewComment(String accessToken, String owner, String repo, int prNumber,
+                                  String body, String commitId, String path, int position);
+
     List<GitHubPullRequest> searchUserPullRequests(String accessToken, String username, int perPage);
 }

@@ -73,6 +73,13 @@ public class GitHubServiceImpl implements GitHubService {
     }
 
     @Override
+    public Long createPrReviewComment(UUID userId, String owner, String repo, int prNumber,
+                                       String body, String commitId, String path, int position) {
+        String accessToken = getGitHubAccessToken(userId);
+        return gitHubResourceClient.createPullReviewComment(accessToken, owner, repo, prNumber, body, commitId, path, position);
+    }
+
+    @Override
     public List<GitHubPullRequest> getRecentPullRequests(UUID userId, int perPage) {
         UserEntity user = userService.findById(userId);
         String accessToken = getAccessTokenFromUser(user);

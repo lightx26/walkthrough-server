@@ -1,4 +1,4 @@
-package com.pet.walkthroughserver.modules.walkthrough.business.events;
+package com.pet.walkthroughserver.modules.comment.business.events;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

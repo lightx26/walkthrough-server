@@ -201,6 +201,29 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
     }
 
     @Override
+    public Long createPullReviewComment(String accessToken, String owner, String repo, int prNumber,
+                                         String body, String commitId, String path, int position) {
+        record ReviewCommentRequest(String body, String commit_id, String path, int position) {}
+        record ReviewCommentResponse(Long id) {}
+
+        ReviewCommentResponse response = restClient.post()
+                .uri(GITHUB_API_URL + "/repos/{owner}/{repo}/pulls/{prNumber}/comments",
+                        owner, repo, prNumber)
+                .header("Authorization", "Bearer " + accessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON)
+                .body(new ReviewCommentRequest(body, commitId, path, position))
+                .retrieve()
+                .body(ReviewCommentResponse.class);
+
+        if (response == null || response.id() == null) {
+            throw new GitHubApiException("Failed to create pull review comment on GitHub");
+        }
+
+        return response.id();
+    }
+
+    @Override
     public List<GitHubPullRequest> searchUserPullRequests(String accessToken, String username, int perPage) {
         record SearchResponse(List<GitHubPullRequest> items) {}
 

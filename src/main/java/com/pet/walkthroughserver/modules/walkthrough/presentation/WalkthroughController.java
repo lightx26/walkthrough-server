@@ -20,8 +20,6 @@ import org.springframework.web.bind.annotation.RestController;
 import com.pet.walkthroughserver.interceptors.DataResponse;
 import com.pet.walkthroughserver.modules._shared.dto.ListData;
 import com.pet.walkthroughserver.modules.walkthrough.business.services.WalkthroughService;
-import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.CommentResponse;
-import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.CreateCommentRequest;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.CreateWalkthroughRequest;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.ReadProgressResponse;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.RecentlyReviewedResponse;
@@ -29,12 +27,9 @@ import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.RecordChap
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.UpdateWalkthroughRequest;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.WalkthroughResponse;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.WalkthroughSummaryResponse;
-import com.pet.walkthroughserver.modules.walkthrough.presentation.mapper.CommentPresentationMapper;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.mapper.ReadProgressPresentationMapper;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.mapper.WalkthroughPresentationMapper;
-import com.pet.walkthroughserver.modules.walkthrough.repository.ChapterViewEventEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.ReadProgressEntity;
-import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughCommentEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughEntity;
 import com.pet.walkthroughserver.security.AuthUser;
 
@@ -48,7 +43,6 @@ public class WalkthroughController {
 
     private final WalkthroughService walkthroughService;
     private final WalkthroughPresentationMapper walkthroughMapper;
-    private final CommentPresentationMapper commentMapper;
     private final ReadProgressPresentationMapper readProgressMapper;
 
     @PostMapping
@@ -144,59 +138,6 @@ public class WalkthroughController {
         return ResponseEntity.noContent().build();
     }
 
-    // ── Comment endpoints ──
-
-    @PostMapping("/{walkthroughId}/comments")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<DataResponse<CommentResponse>> createComment(
-            @AuthenticationPrincipal AuthUser authUser,
-            @PathVariable UUID walkthroughId,
-            @Valid @RequestBody CreateCommentRequest request) {
-        UUID userId = UUID.fromString(authUser.getUserId());
-        WalkthroughCommentEntity entity = walkthroughService.createComment(userId, walkthroughId, request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(DataResponse.of(commentMapper.toResponse(entity)));
-    }
-
-    @GetMapping("/{walkthroughId}/comments")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<DataResponse<ListData<CommentResponse>>> listComments(
-            @PathVariable UUID walkthroughId) {
-        List<WalkthroughCommentEntity> entities = walkthroughService.listComments(walkthroughId);
-        List<CommentResponse> responses = buildThreadedResponses(entities);
-        return ResponseEntity.ok(DataResponse.of(ListData.of(responses)));
-    }
-
-    @GetMapping("/{walkthroughId}/files/{fileId}/comments")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<DataResponse<ListData<CommentResponse>>> listFileComments(
-            @PathVariable UUID walkthroughId,
-            @PathVariable UUID fileId) {
-        List<WalkthroughCommentEntity> entities = walkthroughService.listFileComments(fileId);
-        List<CommentResponse> responses = buildThreadedResponses(entities);
-        return ResponseEntity.ok(DataResponse.of(ListData.of(responses)));
-    }
-
-    @GetMapping("/{walkthroughId}/chapters/{chapterId}/comments")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<DataResponse<ListData<CommentResponse>>> listChapterComments(
-            @PathVariable UUID walkthroughId,
-            @PathVariable UUID chapterId) {
-        List<WalkthroughCommentEntity> entities = walkthroughService.listChapterComments(chapterId);
-        List<CommentResponse> responses = buildThreadedResponses(entities);
-        return ResponseEntity.ok(DataResponse.of(ListData.of(responses)));
-    }
-
-    @DeleteMapping("/{walkthroughId}/comments/{commentId}")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<Void> deleteComment(
-            @AuthenticationPrincipal AuthUser authUser,
-            @PathVariable UUID walkthroughId,
-            @PathVariable UUID commentId) {
-        UUID userId = UUID.fromString(authUser.getUserId());
-        walkthroughService.deleteComment(userId, commentId);
-        return ResponseEntity.noContent().build();
-    }
-
     // ── Reading Progress endpoints ──
 
     @PostMapping("/{walkthroughId}/chapter-view-events")
@@ -220,16 +161,5 @@ public class WalkthroughController {
         return ResponseEntity.ok(DataResponse.of(readProgressMapper.toResponse(entity)));
     }
 
-    // ── Private helpers ──
-
-    private List<CommentResponse> buildThreadedResponses(List<WalkthroughCommentEntity> rootComments) {
-        return rootComments.stream().map(this::toThreadedResponse).toList();
-    }
-
-    private CommentResponse toThreadedResponse(WalkthroughCommentEntity entity) {
-        CommentResponse response = commentMapper.toResponse(entity);
-        List<WalkthroughCommentEntity> replyEntities = walkthroughService.listReplies(entity.getId());
-        response.setReplies(replyEntities.stream().map(this::toThreadedResponse).toList());
-        return response;
-    }
 }
+

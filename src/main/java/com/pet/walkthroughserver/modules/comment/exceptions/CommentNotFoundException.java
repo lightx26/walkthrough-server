@@ -1,4 +1,4 @@
-package com.pet.walkthroughserver.modules.walkthrough.exceptions;
+package com.pet.walkthroughserver.modules.comment.exceptions;
 
 import com.pet.walkthroughserver.modules._shared.exceptions.AppException;
 import org.springframework.http.HttpStatus;

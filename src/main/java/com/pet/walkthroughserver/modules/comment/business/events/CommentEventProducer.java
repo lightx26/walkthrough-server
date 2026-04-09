@@ -1,4 +1,4 @@
-package com.pet.walkthroughserver.modules.walkthrough.business.events;
+package com.pet.walkthroughserver.modules.comment.business.events;
 
 import com.pet.walkthroughserver.configs.RabbitMQConfig;
 import lombok.RequiredArgsConstructor;

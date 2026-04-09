@@ -21,6 +21,8 @@ public class WalkthroughFileRequest {
     @NotBlank
     private String fileStatus;
 
+    private String rawPatch;
+
     @Valid
     private List<AnnotationRequest> annotations = new ArrayList<>();
 }

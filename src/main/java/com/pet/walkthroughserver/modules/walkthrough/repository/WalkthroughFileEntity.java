@@ -41,6 +41,9 @@ public class WalkthroughFileEntity extends BaseEntity {
     @Column(name = "sort_order", nullable = false)
     private Integer sortOrder;
 
+    @Column(name = "raw_patch", columnDefinition = "TEXT")
+    private String rawPatch;
+
     @OneToMany(mappedBy = "walkthroughFile", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("sortOrder ASC")
     @Builder.Default
