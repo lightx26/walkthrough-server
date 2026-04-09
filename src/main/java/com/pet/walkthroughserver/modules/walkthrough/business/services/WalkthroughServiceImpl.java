@@ -8,7 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequest;
-import com.pet.walkthroughserver.modules.github.business.services.GitHubService;
+import com.pet.walkthroughserver.modules.githubpr.business.services.GitHubPrService;
 import com.pet.walkthroughserver.modules.walkthrough.exceptions.WalkthroughAccessDeniedException;
 import com.pet.walkthroughserver.modules.walkthrough.exceptions.WalkthroughNotFoundException;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.AnnotationRequest;
@@ -37,7 +37,7 @@ public class WalkthroughServiceImpl implements WalkthroughService {
     private final WalkthroughRepository walkthroughRepository;
     private final ChapterViewEventRepository chapterViewEventRepository;
     private final ReadProgressRepository readProgressRepository;
-    private final GitHubService gitHubService;
+    private final GitHubPrService gitHubPrService;
 
     @Override
     @Transactional
@@ -197,7 +197,7 @@ public class WalkthroughServiceImpl implements WalkthroughService {
     }
 
     private GitHubPullRequest verifyPrOwnership(UUID userId, String username, CreateWalkthroughRequest request) {
-        GitHubPullRequest pr = gitHubService.getPullRequest(
+        GitHubPullRequest pr = gitHubPrService.getPullRequest(
                 userId, request.getOwner(), request.getRepo(), request.getPrNumber());
         String prAuthorLogin = pr.getUser().getLogin();
         if (!username.equalsIgnoreCase(prAuthorLogin)) {

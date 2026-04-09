@@ -5,7 +5,8 @@ import com.pet.walkthroughserver.modules._shared.infra.github.exceptions.GitHubA
 import com.pet.walkthroughserver.modules._shared.infra.github.exceptions.GitHubAuthFailedException;
 import com.pet.walkthroughserver.modules._shared.infra.github.exceptions.GitHubResourceNotFoundException;
 import com.pet.walkthroughserver.modules._shared.infra.github.exceptions.GitHubAccessTokenNotFoundException;
-import com.pet.walkthroughserver.modules.github.presentation.GitHubController;
+import com.pet.walkthroughserver.modules.githubpr.presentation.GitHubPrController;
+import com.pet.walkthroughserver.modules.githubrepo.presentation.GitHubRepoController;
 import com.pet.walkthroughserver.modules.user.exceptions.UserNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.annotation.Order;
@@ -17,7 +18,7 @@ import static com.pet.walkthroughserver.utils.ExceptionResponse.respond;
 
 @Slf4j
 @Order(1)
-@RestControllerAdvice(basePackageClasses = GitHubController.class)
+@RestControllerAdvice(basePackageClasses = {GitHubRepoController.class, GitHubPrController.class})
 public class GitHubExceptionHandler {
 
     @ExceptionHandler(GitHubAccessTokenNotFoundException.class)
