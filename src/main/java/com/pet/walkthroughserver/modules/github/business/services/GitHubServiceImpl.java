@@ -1,7 +1,7 @@
 package com.pet.walkthroughserver.modules.github.business.services;
 
-import com.pet.walkthroughserver.modules.github.exceptions.GitHubAccessTokenNotFoundException;
 import com.pet.walkthroughserver.modules._shared.infra.github.GitHubResourceClient;
+import com.pet.walkthroughserver.modules._shared.infra.github.exceptions.GitHubAccessTokenNotFoundException;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubCommit;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequest;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequestFile;
