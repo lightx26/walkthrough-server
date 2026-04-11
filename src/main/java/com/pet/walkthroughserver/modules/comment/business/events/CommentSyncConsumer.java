@@ -4,7 +4,7 @@ import com.pet.walkthroughserver.configs.RabbitMQConfig;
 import com.pet.walkthroughserver.modules.comment.business.util.DiffPositionParser;
 import com.pet.walkthroughserver.modules.comment.repository.CommentEntity;
 import com.pet.walkthroughserver.modules.comment.repository.CommentRepository;
-import com.pet.walkthroughserver.modules.githubpr.business.services.GitHubPrService;
+import com.pet.walkthroughserver.modules.comment.business.services.CommentService;
 import com.pet.walkthroughserver.modules.user.business.services.UserService;
 import com.pet.walkthroughserver.modules.user.repository.UserEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughEntity;
@@ -26,7 +26,7 @@ public class CommentSyncConsumer {
     private final CommentRepository commentRepository;
     private final WalkthroughRepository walkthroughRepository;
     private final WalkthroughFileRepository walkthroughFileRepository;
-    private final GitHubPrService gitHubPrService;
+    private final CommentService commentService;
     private final UserService userService;
 
     @RabbitListener(queues = RabbitMQConfig.COMMENT_QUEUE)
@@ -108,7 +108,7 @@ public class CommentSyncConsumer {
         try {
             // Post using the walkthrough author's token — they are the PR author and
             // always have write access. The reviewer's identity is preserved in the body.
-            Long githubCommentId = gitHubPrService.createPrReviewComment(
+            Long githubCommentId = commentService.createPrReviewComment(
                     walkthrough.getUserId(),
                     walkthrough.getOwner(),
                     walkthrough.getRepo(),
@@ -142,7 +142,7 @@ public class CommentSyncConsumer {
 
         // Use the walkthrough author's token for the same reason as line comments:
         // they have the necessary repository access.
-        Long githubCommentId = gitHubPrService.createPrComment(
+        Long githubCommentId = commentService.createPrComment(
                 walkthrough.getUserId(),
                 walkthrough.getOwner(),
                 walkthrough.getRepo(),

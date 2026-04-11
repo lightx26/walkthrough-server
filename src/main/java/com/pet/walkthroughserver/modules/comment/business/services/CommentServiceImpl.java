@@ -12,6 +12,10 @@ import com.pet.walkthroughserver.modules.comment.exceptions.CommentNotFoundExcep
 import com.pet.walkthroughserver.modules.comment.presentation.dto.CreateCommentRequest;
 import com.pet.walkthroughserver.modules.comment.repository.CommentEntity;
 import com.pet.walkthroughserver.modules.comment.repository.CommentRepository;
+import com.pet.walkthroughserver.modules._shared.infra.github.GitHubResourceClient;
+import com.pet.walkthroughserver.modules._shared.infra.github.exceptions.GitHubAccessTokenNotFoundException;
+import com.pet.walkthroughserver.modules.user.business.services.UserService;
+import com.pet.walkthroughserver.modules.user.repository.UserEntity;
 import com.pet.walkthroughserver.modules.walkthrough.exceptions.WalkthroughNotFoundException;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughRepository;
 
@@ -24,6 +28,8 @@ public class CommentServiceImpl implements CommentService {
     private final CommentRepository commentRepository;
     private final WalkthroughRepository walkthroughRepository;
     private final CommentEventProducer commentEventProducer;
+    private final GitHubResourceClient gitHubResourceClient;
+    private final UserService userService;
 
     @Override
     @Transactional
@@ -44,15 +50,14 @@ public class CommentServiceImpl implements CommentService {
 
         CommentEntity saved = commentRepository.save(comment);
 
-        // Only publish sync event for line-level comments (those with a file + position)
-        if (request.getWalkthroughFileId() != null && request.getDiffPosition() != null) {
-            commentEventProducer.publish(CommentCreatedEvent.builder()
-                    .commentId(saved.getId())
-                    .walkthroughId(walkthroughId)
-                    .userId(userId)
-                    .content(request.getContent())
-                    .build());
-        }
+        commentEventProducer.publish(CommentCreatedEvent.builder()
+                .commentId(saved.getId())
+                .walkthroughId(walkthroughId)
+                .userId(userId)
+                .content(request.getContent())
+                .walkthroughFileId(request.getWalkthroughFileId())
+                .diffPosition(request.getDiffPosition())
+                .build());
 
         return saved;
     }
@@ -83,5 +88,27 @@ public class CommentServiceImpl implements CommentService {
         CommentEntity comment = commentRepository.findByIdAndUserId(commentId, userId)
                 .orElseThrow(() -> new CommentNotFoundException("Comment not found"));
         commentRepository.delete(comment);
+    }
+
+    @Override
+    public Long createPrComment(UUID userId, String owner, String repo, int prNumber, String body) {
+        String accessToken = getGitHubAccessToken(userId);
+        return gitHubResourceClient.createIssueComment(accessToken, owner, repo, prNumber, body);
+    }
+
+    @Override
+    public Long createPrReviewComment(UUID userId, String owner, String repo, int prNumber,
+                                       String body, String commitId, String path, int position) {
+        String accessToken = getGitHubAccessToken(userId);
+        return gitHubResourceClient.createPullReviewComment(accessToken, owner, repo, prNumber, body, commitId, path, position);
+    }
+
+    private String getGitHubAccessToken(UUID userId) {
+        UserEntity user = userService.findById(userId);
+        String token = user.getGithubAccessToken();
+        if (token == null || token.isBlank()) {
+            throw new GitHubAccessTokenNotFoundException("GitHub access token not found. Please re-authenticate.");
+        }
+        return token;
     }
 }

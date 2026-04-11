@@ -57,6 +57,7 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
             throw new GitHubAuthFailedException("GitHub authentication failed: " + errorMsg);
         }
 
+        log.info("GitHub API [POST /login/oauth/access_token] — success");
         return response;
     }
 
@@ -73,6 +74,7 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
             throw new GitHubAuthFailedException("Failed to fetch GitHub user info");
         }
 
+        log.info("GitHub API [GET /user] — success, userId={}", userInfo.getId());
         return userInfo;
     }
 
@@ -92,6 +94,7 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
             throw new GitHubApiException("Failed to fetch repositories from GitHub");
         }
 
+        log.info("GitHub API [GET /user/repos] — success, count={}", repos.size());
         return repos;
     }
 
@@ -109,6 +112,7 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
             throw new GitHubApiException("Failed to search repositories on GitHub");
         }
 
+        log.info("GitHub API [GET /search/repositories] — success, query={}", query);
         return response;
     }
 
@@ -127,6 +131,7 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
             throw new GitHubApiException("Failed to fetch pull requests from GitHub");
         }
 
+        log.info("GitHub API [GET /repos/{}/{}/pulls] — success, count={}", owner, repo, pullRequests.size());
         return pullRequests;
     }
 
@@ -144,6 +149,7 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
             throw new GitHubResourceNotFoundException("Pull request not found");
         }
 
+        log.info("GitHub API [GET /repos/{}/{}/pulls/{}] — success", owner, repo, pullNumber);
         return pullRequest;
     }
 
@@ -161,6 +167,7 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
             throw new GitHubApiException("Failed to fetch pull request commits from GitHub");
         }
 
+        log.info("GitHub API [GET /repos/{}/{}/pulls/{}/commits] — success, count={}", owner, repo, pullNumber, commits.size());
         return commits;
     }
 
@@ -178,6 +185,7 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
             throw new GitHubApiException("Failed to fetch pull request files from GitHub");
         }
 
+        log.info("GitHub API [GET /repos/{}/{}/pulls/{}/files] — success, count={}", owner, repo, pullNumber, files.size());
         return files;
     }
 
@@ -197,6 +205,7 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
             throw new GitHubApiException("Failed to fetch commit files from GitHub");
         }
 
+        log.info("GitHub API [GET /repos/{}/{}/commits/{}] — success, fileCount={}", owner, repo, commitSha, detail.files().size());
         return detail.files();
     }
 
@@ -220,6 +229,7 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
             throw new GitHubApiException("Failed to create pull review comment on GitHub");
         }
 
+        log.info("GitHub API [POST /repos/{}/{}/pulls/{}/comments] — success, commentId={}", owner, repo, prNumber, response.id());
         return response.id();
     }
 
@@ -239,6 +249,7 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
             throw new GitHubApiException("Failed to search pull requests on GitHub");
         }
 
+        log.info("GitHub API [GET /search/issues] — success, username={}, count={}", username, response.items().size());
         return response.items();
     }
 
@@ -261,6 +272,7 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
             throw new GitHubApiException("Failed to create issue comment on GitHub");
         }
 
+        log.info("GitHub API [POST /repos/{}/{}/issues/{}/comments] — success, commentId={}", owner, repo, issueNumber, response.id());
         return response.id();
     }
 }

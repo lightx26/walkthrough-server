@@ -51,6 +51,8 @@ public class CommentRetryScheduler {
                     .walkthroughId(comment.getWalkthroughId())
                     .userId(comment.getUserId())
                     .content(comment.getContent())
+                    .walkthroughFileId(comment.getWalkthroughFileId())
+                    .diffPosition(comment.getDiffPosition())
                     .build());
 
             log.info("Requeued comment {} for retry (attempt {})", comment.getId(), comment.getRetryCount());

@@ -18,4 +18,6 @@ public class CommentCreatedEvent implements Serializable {
     private UUID walkthroughId;
     private UUID userId;
     private String content;
+    private UUID walkthroughFileId;
+    private Integer diffPosition;
 }
