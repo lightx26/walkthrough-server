@@ -27,6 +27,11 @@ public class RabbitMQConfig {
     public static final String WALKTHROUGH_SEARCH_SYNC_DLQ = "walkthrough.search.sync.dlq";
     public static final String WALKTHROUGH_EVENTS_ROUTING_KEY = "walkthrough.*";
 
+    // ── Activity sync events ──
+    public static final String ACTIVITY_SYNC_QUEUE = "walkthrough.activity.sync.q";
+    public static final String ACTIVITY_SYNC_DLX = "walkthrough.activity.sync.dlx";
+    public static final String ACTIVITY_SYNC_DLQ = "walkthrough.activity.sync.dlq";
+
     @Bean
     Queue commentQueue() {
         return new Queue(COMMENT_QUEUE, true);
@@ -75,6 +80,36 @@ public class RabbitMQConfig {
     @Bean
     Binding walkthroughSearchSyncBinding(Queue walkthroughSearchSyncQueue, TopicExchange walkthroughEventsExchange) {
         return BindingBuilder.bind(walkthroughSearchSyncQueue).to(walkthroughEventsExchange).with(WALKTHROUGH_EVENTS_ROUTING_KEY);
+    }
+
+    // ── Activity sync topology ──
+
+    @Bean
+    DirectExchange activitySyncDlx() {
+        return new DirectExchange(ACTIVITY_SYNC_DLX);
+    }
+
+    @Bean
+    Queue activitySyncDlq() {
+        return QueueBuilder.durable(ACTIVITY_SYNC_DLQ).build();
+    }
+
+    @Bean
+    Binding activitySyncDlqBinding(Queue activitySyncDlq, DirectExchange activitySyncDlx) {
+        return BindingBuilder.bind(activitySyncDlq).to(activitySyncDlx).with(ACTIVITY_SYNC_DLQ);
+    }
+
+    @Bean
+    Queue activitySyncQueue() {
+        return QueueBuilder.durable(ACTIVITY_SYNC_QUEUE)
+                .withArgument("x-dead-letter-exchange", ACTIVITY_SYNC_DLX)
+                .withArgument("x-dead-letter-routing-key", ACTIVITY_SYNC_DLQ)
+                .build();
+    }
+
+    @Bean
+    Binding activitySyncBinding(Queue activitySyncQueue, TopicExchange walkthroughEventsExchange) {
+        return BindingBuilder.bind(activitySyncQueue).to(walkthroughEventsExchange).with(WALKTHROUGH_EVENTS_ROUTING_KEY);
     }
 
     @Bean

@@ -1,6 +1,8 @@
 package com.pet.walkthroughserver.modules.walkthrough.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -15,4 +17,23 @@ public interface WalkthroughRepository extends JpaRepository<WalkthroughEntity, 
     List<WalkthroughEntity> findTop10ByUserIdOrderByUpdatedAtDesc(UUID userId);
 
     List<WalkthroughEntity> findTop10ByStatusOrderByUpdatedAtDesc(WalkthroughStatus status);
+
+    List<WalkthroughEntity> findByUserIdAndStatusOrderByUpdatedAtDesc(UUID userId, WalkthroughStatus status);
+
+    List<WalkthroughEntity> findByUserIdOrderByUpdatedAtDesc(UUID userId);
+
+    long countByUserId(UUID userId);
+
+    long countByUserIdAndStatus(UUID userId, WalkthroughStatus status);
+
+    @Query("SELECT COUNT(c) FROM ChapterEntity c JOIN c.walkthrough w WHERE w.userId = :userId")
+    long countChaptersByUserId(@Param("userId") UUID userId);
+
+    @Query("SELECT COUNT(cv) FROM ChapterViewEventEntity cv, ChapterEntity c " +
+            "WHERE cv.chapterId = c.id AND c.walkthrough.userId = :userId")
+    long countViewsByUserId(@Param("userId") UUID userId);
+
+    @Query("SELECT COUNT(cm) FROM CommentEntity cm, WalkthroughEntity w " +
+            "WHERE cm.walkthroughId = w.id AND w.userId = :userId")
+    long countCommentsByUserId(@Param("userId") UUID userId);
 }
