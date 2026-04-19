@@ -6,8 +6,14 @@ import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequest;
+import com.pet.walkthroughserver.modules.walkthrough.business.events.WalkthroughCreatedEvent;
+import com.pet.walkthroughserver.modules.walkthrough.business.events.WalkthroughDeletedEvent;
+import com.pet.walkthroughserver.modules.walkthrough.business.events.WalkthroughEventPublisher;
+import com.pet.walkthroughserver.modules.walkthrough.business.events.WalkthroughUpdatedEvent;
 import com.pet.walkthroughserver.modules.githubpr.business.services.GitHubPrService;
 import com.pet.walkthroughserver.modules.walkthrough.exceptions.WalkthroughAccessDeniedException;
 import com.pet.walkthroughserver.modules.walkthrough.exceptions.WalkthroughNotFoundException;
@@ -38,6 +44,7 @@ public class WalkthroughServiceImpl implements WalkthroughService {
     private final ChapterViewEventRepository chapterViewEventRepository;
     private final ReadProgressRepository readProgressRepository;
     private final GitHubPrService gitHubPrService;
+    private final WalkthroughEventPublisher walkthroughEventPublisher;
 
     @Override
     @Transactional
@@ -56,7 +63,9 @@ public class WalkthroughServiceImpl implements WalkthroughService {
                 .build();
 
         buildChapters(walkthrough, request.getChapters());
-        return walkthroughRepository.save(walkthrough);
+        WalkthroughEntity saved = walkthroughRepository.save(walkthrough);
+        publishAfterCommit(new WalkthroughCreatedEvent(saved.getId(), Instant.now()));
+        return saved;
     }
 
     @Override
@@ -94,7 +103,9 @@ public class WalkthroughServiceImpl implements WalkthroughService {
         walkthrough.getChapters().clear();
         buildChapters(walkthrough, request.getChapters());
 
-        return walkthroughRepository.save(walkthrough);
+        WalkthroughEntity saved = walkthroughRepository.save(walkthrough);
+        publishAfterCommit(new WalkthroughUpdatedEvent(saved.getId(), Instant.now()));
+        return saved;
     }
 
     @Override
@@ -103,6 +114,7 @@ public class WalkthroughServiceImpl implements WalkthroughService {
         WalkthroughEntity walkthrough = findWalkthroughById(walkthroughId);
         verifyOwnership(walkthrough, userId);
         walkthroughRepository.delete(walkthrough);
+        publishAfterCommit(new WalkthroughDeletedEvent(walkthroughId, Instant.now()));
     }
 
     // ── Reading Progress ──
@@ -246,5 +258,14 @@ public class WalkthroughServiceImpl implements WalkthroughService {
                     .build();
             file.getAnnotations().add(annotation);
         }
+    }
+
+    private void publishAfterCommit(com.pet.walkthroughserver.modules.walkthrough.business.events.WalkthroughEvent event) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                walkthroughEventPublisher.publish(event);
+            }
+        });
     }
 }
