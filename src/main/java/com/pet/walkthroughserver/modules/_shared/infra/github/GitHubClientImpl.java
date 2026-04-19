@@ -1,5 +1,13 @@
 package com.pet.walkthroughserver.modules._shared.infra.github;
 
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.MediaType;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClient;
+
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubAccessTokenResponse;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubCommit;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequest;
@@ -10,15 +18,9 @@ import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubUserInfo
 import com.pet.walkthroughserver.modules._shared.infra.github.exceptions.GitHubApiException;
 import com.pet.walkthroughserver.modules._shared.infra.github.exceptions.GitHubAuthFailedException;
 import com.pet.walkthroughserver.modules._shared.infra.github.exceptions.GitHubResourceNotFoundException;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.MediaType;
-import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestClient;
-
-import java.util.List;
 
 @Slf4j
 @Component

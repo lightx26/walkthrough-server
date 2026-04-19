@@ -1,22 +1,24 @@
 package com.pet.walkthroughserver.modules.comment.business.events;
 
+import java.util.Optional;
+
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.stereotype.Component;
+
 import com.pet.walkthroughserver.configs.RabbitMQConfig;
+import com.pet.walkthroughserver.modules.comment.business.services.CommentService;
 import com.pet.walkthroughserver.modules.comment.business.util.DiffPositionParser;
 import com.pet.walkthroughserver.modules.comment.repository.CommentEntity;
 import com.pet.walkthroughserver.modules.comment.repository.CommentRepository;
-import com.pet.walkthroughserver.modules.comment.business.services.CommentService;
 import com.pet.walkthroughserver.modules.user.business.services.UserService;
 import com.pet.walkthroughserver.modules.user.repository.UserEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughFileEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughFileRepository;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughRepository;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.amqp.rabbit.annotation.RabbitListener;
-import org.springframework.stereotype.Component;
-
-import java.util.Optional;
 
 @Slf4j
 @Component

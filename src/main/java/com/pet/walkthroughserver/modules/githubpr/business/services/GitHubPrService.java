@@ -1,11 +1,11 @@
 package com.pet.walkthroughserver.modules.githubpr.business.services;
 
+import java.util.List;
+import java.util.UUID;
+
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubCommit;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequest;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequestFile;
-
-import java.util.List;
-import java.util.UUID;
 
 public interface GitHubPrService {
 

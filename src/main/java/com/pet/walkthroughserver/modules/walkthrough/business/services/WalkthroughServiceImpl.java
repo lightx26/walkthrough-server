@@ -160,13 +160,7 @@ public class WalkthroughServiceImpl implements WalkthroughService {
 
     @Override
     public List<ReadProgressEntity> listRecentlyReviewed(UUID userId) {
-        return readProgressRepository.findTop10ByUserIdOrderByReadAtDesc(userId)
-                .stream()
-                .filter(rp -> {
-                    WalkthroughEntity wt = walkthroughRepository.findById(rp.getWalkthroughId()).orElse(null);
-                    return wt != null && !wt.getUserId().equals(userId);
-                })
-                .toList();
+        return readProgressRepository.findRecentlyReviewed(userId);
     }
 
     @Override

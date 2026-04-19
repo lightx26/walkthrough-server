@@ -1,10 +1,10 @@
 package com.pet.walkthroughserver.modules.comment.business.services;
 
-import com.pet.walkthroughserver.modules.comment.presentation.dto.CreateCommentRequest;
-import com.pet.walkthroughserver.modules.comment.repository.CommentEntity;
-
 import java.util.List;
 import java.util.UUID;
+
+import com.pet.walkthroughserver.modules.comment.presentation.dto.CreateCommentRequest;
+import com.pet.walkthroughserver.modules.comment.repository.CommentEntity;
 
 public interface CommentService {
 
