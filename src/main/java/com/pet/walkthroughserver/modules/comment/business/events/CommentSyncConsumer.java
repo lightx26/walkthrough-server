@@ -108,10 +108,10 @@ public class CommentSyncConsumer {
         String body = formatBody(user.getUsername(), comment.getContent());
 
         try {
-            // Post using the walkthrough author's token — they are the PR author and
-            // always have write access. The reviewer's identity is preserved in the body.
+            // Post using the commenter's token so the GitHub comment is attributed
+            // to the person who actually wrote it.
             Long githubCommentId = commentService.createPrReviewComment(
-                    walkthrough.getUserId(),
+                    comment.getUserId(),
                     walkthrough.getOwner(),
                     walkthrough.getRepo(),
                     walkthrough.getPrNumber(),
@@ -142,10 +142,10 @@ public class CommentSyncConsumer {
         String body = String.format("**[Walkthrough: %s]** %s commented:\n\n%s",
                 walkthrough.getTitle(), user.getUsername(), comment.getContent());
 
-        // Use the walkthrough author's token for the same reason as line comments:
-        // they have the necessary repository access.
+        // Post using the commenter's token so the GitHub comment is attributed
+        // to the person who actually wrote it.
         Long githubCommentId = commentService.createPrComment(
-                walkthrough.getUserId(),
+                comment.getUserId(),
                 walkthrough.getOwner(),
                 walkthrough.getRepo(),
                 walkthrough.getPrNumber(),
