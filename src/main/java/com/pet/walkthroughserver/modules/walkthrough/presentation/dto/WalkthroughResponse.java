@@ -17,6 +17,8 @@ public class WalkthroughResponse {
     private String title;
     private String description;
     private WalkthroughStatus status;
+    private String commitSha;
+    private Integer version;
     private String owner;
     private String repo;
     private Integer prNumber;

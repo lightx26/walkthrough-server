@@ -3,11 +3,14 @@ package com.pet.walkthroughserver.modules.walkthrough.repository;
 import com.pet.walkthroughserver.modules._shared.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -40,4 +43,9 @@ public class AnnotationEntity extends BaseEntity {
 
     @Column(name = "sort_order", nullable = false)
     private Integer sortOrder;
+
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    private AnnotationStatus status = AnnotationStatus.ACTIVE;
 }

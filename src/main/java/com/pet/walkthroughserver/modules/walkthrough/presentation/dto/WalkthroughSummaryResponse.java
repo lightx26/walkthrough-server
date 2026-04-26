@@ -18,6 +18,7 @@ public class WalkthroughSummaryResponse {
     private String repo;
     private Integer prNumber;
     private WalkthroughStatus status;
+    private Integer version;
     private Integer chapterCount;
     private Instant createdAt;
     private Instant updatedAt;

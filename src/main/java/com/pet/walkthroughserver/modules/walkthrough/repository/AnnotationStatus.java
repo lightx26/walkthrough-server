@@ -1,7 +1,6 @@
 package com.pet.walkthroughserver.modules.walkthrough.repository;
 
-public enum WalkthroughStatus {
-    DRAFT,
-    PUBLISHED,
+public enum AnnotationStatus {
+    ACTIVE,
     OUTDATED
 }

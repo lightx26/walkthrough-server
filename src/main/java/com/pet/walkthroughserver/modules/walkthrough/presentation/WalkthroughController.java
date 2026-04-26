@@ -21,11 +21,14 @@ import com.pet.walkthroughserver.interceptors.DataResponse;
 import com.pet.walkthroughserver.modules._shared.dto.ListData;
 import com.pet.walkthroughserver.modules.walkthrough.business.services.ReadProgressService;
 import com.pet.walkthroughserver.modules.walkthrough.business.services.WalkthroughService;
+import com.pet.walkthroughserver.modules.walkthrough.business.services.WalkthroughVersionService;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.CreateWalkthroughRequest;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.ReadProgressResponse;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.RecentlyReviewedResponse;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.RecordChapterViewRequest;
+import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.StalenessResponse;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.UpdateWalkthroughRequest;
+import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.VersionDiffResponse;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.WalkthroughResponse;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.WalkthroughSummaryResponse;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.mapper.ReadProgressPresentationMapper;
@@ -44,6 +47,7 @@ public class WalkthroughController {
 
     private final WalkthroughService walkthroughService;
     private final ReadProgressService readProgressService;
+    private final WalkthroughVersionService walkthroughVersionService;
     private final WalkthroughPresentationMapper walkthroughMapper;
     private final ReadProgressPresentationMapper readProgressMapper;
 
@@ -161,6 +165,41 @@ public class WalkthroughController {
         UUID userId = UUID.fromString(authUser.getUserId());
         ReadProgressEntity entity = readProgressService.getReadProgress(userId, walkthroughId);
         return ResponseEntity.ok(DataResponse.of(readProgressMapper.toResponse(entity)));
+    }
+
+    // ── Versioning endpoints ──
+
+    @GetMapping("/{id}/staleness")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<DataResponse<StalenessResponse>> checkStaleness(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable UUID id) {
+        UUID userId = UUID.fromString(authUser.getUserId());
+        StalenessResponse response = walkthroughVersionService.checkStaleness(userId, id);
+        return ResponseEntity.ok(DataResponse.of(response));
+    }
+
+    @PostMapping("/{id}/new-version")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<DataResponse<WalkthroughResponse>> createNewVersion(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable UUID id) {
+        UUID userId = UUID.fromString(authUser.getUserId());
+        WalkthroughEntity entity = walkthroughVersionService.createNewVersion(userId, id);
+        WalkthroughResponse response = walkthroughMapper.toResponse(entity);
+        return ResponseEntity.status(HttpStatus.CREATED).body(DataResponse.of(response));
+    }
+
+    @GetMapping("/{id}/diff")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<DataResponse<VersionDiffResponse>> getVersionDiff(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable UUID id,
+            @RequestParam int fromVersion,
+            @RequestParam int toVersion) {
+        UUID userId = UUID.fromString(authUser.getUserId());
+        VersionDiffResponse response = walkthroughVersionService.getVersionDiff(userId, id, fromVersion, toVersion);
+        return ResponseEntity.ok(DataResponse.of(response));
     }
 
 }

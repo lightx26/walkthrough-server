@@ -27,15 +27,21 @@ import com.pet.walkthroughserver.modules.walkthrough.repository.ChapterEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughFileEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughRepository;
+import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughSnapshotEntity;
+import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughSnapshotRepository;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughStatus;
+import com.pet.walkthroughserver.modules.walkthrough.business.util.WalkthroughSnapshotSerializer;
 
 import lombok.RequiredArgsConstructor;
+
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
 public class WalkthroughServiceImpl implements WalkthroughService {
 
     private final WalkthroughRepository walkthroughRepository;
+    private final WalkthroughSnapshotRepository snapshotRepository;
     private final GitHubPrService gitHubPrService;
     private final WalkthroughEventPublisher walkthroughEventPublisher;
 
@@ -81,6 +87,9 @@ public class WalkthroughServiceImpl implements WalkthroughService {
         if (walkthrough.getStatus() == WalkthroughStatus.DRAFT && !walkthrough.getUserId().equals(requestingUserId)) {
             throw new WalkthroughNotFoundException("Walkthrough not found");
         }
+        if (walkthrough.getStatus() == WalkthroughStatus.OUTDATED && !walkthrough.getUserId().equals(requestingUserId)) {
+            throw new WalkthroughNotFoundException("Walkthrough not found");
+        }
         return walkthrough;
     }
 
@@ -98,6 +107,12 @@ public class WalkthroughServiceImpl implements WalkthroughService {
 
         WalkthroughEntity saved = walkthroughRepository.save(walkthrough);
         publishAfterCommit(new WalkthroughUpdatedEvent(saved.getId(), Instant.now()));
+
+        // Capture snapshot when publishing
+        if (saved.getStatus() == WalkthroughStatus.PUBLISHED) {
+            captureSnapshot(saved);
+        }
+
         return saved;
     }
 
@@ -111,6 +126,24 @@ public class WalkthroughServiceImpl implements WalkthroughService {
     }
 
     // ── Private helpers ──
+
+    private void captureSnapshot(WalkthroughEntity walkthrough) {
+        if (snapshotRepository.findByWalkthroughIdAndVersion(
+                walkthrough.getId(), walkthrough.getVersion()).isPresent()) {
+            return;
+        }
+
+        Map<String, Object> content = WalkthroughSnapshotSerializer.serialize(walkthrough);
+
+        WalkthroughSnapshotEntity snapshot = WalkthroughSnapshotEntity.builder()
+                .walkthroughId(walkthrough.getId())
+                .version(walkthrough.getVersion())
+                .commitSha(walkthrough.getCommitSha())
+                .walkthroughContent(content)
+                .build();
+
+        snapshotRepository.save(snapshot);
+    }
 
     private WalkthroughEntity findWalkthroughById(UUID id) {
         return walkthroughRepository.findById(id)
