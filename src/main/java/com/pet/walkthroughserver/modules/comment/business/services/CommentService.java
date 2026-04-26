@@ -10,11 +10,6 @@ public interface CommentService {
 
     CommentEntity createComment(UUID userId, UUID walkthroughId, CreateCommentRequest request);
 
-    Long createPrComment(UUID userId, String owner, String repo, int prNumber, String body);
-
-    Long createPrReviewComment(UUID userId, String owner, String repo, int prNumber,
-                                String body, String commitId, String path, int position);
-
     List<CommentEntity> listComments(UUID walkthroughId);
 
     List<CommentEntity> listFileComments(UUID walkthroughFileId);

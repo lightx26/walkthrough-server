@@ -10,25 +10,20 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequest;
+import com.pet.walkthroughserver.modules.githubpr.business.services.GitHubPrService;
 import com.pet.walkthroughserver.modules.walkthrough.business.events.WalkthroughCreatedEvent;
 import com.pet.walkthroughserver.modules.walkthrough.business.events.WalkthroughDeletedEvent;
 import com.pet.walkthroughserver.modules.walkthrough.business.events.WalkthroughEventPublisher;
 import com.pet.walkthroughserver.modules.walkthrough.business.events.WalkthroughUpdatedEvent;
-import com.pet.walkthroughserver.modules.githubpr.business.services.GitHubPrService;
 import com.pet.walkthroughserver.modules.walkthrough.exceptions.WalkthroughAccessDeniedException;
 import com.pet.walkthroughserver.modules.walkthrough.exceptions.WalkthroughNotFoundException;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.AnnotationRequest;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.ChapterRequest;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.CreateWalkthroughRequest;
-import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.RecordChapterViewRequest;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.UpdateWalkthroughRequest;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.WalkthroughFileRequest;
 import com.pet.walkthroughserver.modules.walkthrough.repository.AnnotationEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.ChapterEntity;
-import com.pet.walkthroughserver.modules.walkthrough.repository.ChapterViewEventEntity;
-import com.pet.walkthroughserver.modules.walkthrough.repository.ChapterViewEventRepository;
-import com.pet.walkthroughserver.modules.walkthrough.repository.ReadProgressEntity;
-import com.pet.walkthroughserver.modules.walkthrough.repository.ReadProgressRepository;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughFileEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughRepository;
@@ -41,8 +36,6 @@ import lombok.RequiredArgsConstructor;
 public class WalkthroughServiceImpl implements WalkthroughService {
 
     private final WalkthroughRepository walkthroughRepository;
-    private final ChapterViewEventRepository chapterViewEventRepository;
-    private final ReadProgressRepository readProgressRepository;
     private final GitHubPrService gitHubPrService;
     private final WalkthroughEventPublisher walkthroughEventPublisher;
 
@@ -115,78 +108,6 @@ public class WalkthroughServiceImpl implements WalkthroughService {
         verifyOwnership(walkthrough, userId);
         walkthroughRepository.delete(walkthrough);
         publishAfterCommit(new WalkthroughDeletedEvent(walkthroughId, Instant.now()));
-    }
-
-    // ── Reading Progress ──
-
-    @Override
-    @Transactional
-    public ChapterViewEventEntity recordChapterView(UUID userId, UUID walkthroughId, RecordChapterViewRequest request) {
-        WalkthroughEntity walkthrough = findWalkthroughById(walkthroughId);
-
-        // Authors reviewing their own walkthrough should not generate progress records
-        if (walkthrough.getUserId().equals(userId)) {
-            return null;
-        }
-
-        // Check first visit BEFORE saving the new event
-        boolean isFirstVisit = !chapterViewEventRepository.existsByChapterIdAndUserId(
-                request.getChapterId(), userId);
-
-        ChapterViewEventEntity event = ChapterViewEventEntity.builder()
-                .chapterId(request.getChapterId())
-                .userId(userId)
-                .timeSpentSec(request.getTimeSpentSec() != null ? request.getTimeSpentSec() : 0)
-                .scrolledToBottom(request.getScrolledToBottom() != null ? request.getScrolledToBottom() : false)
-                .viewedAt(Instant.now())
-                .build();
-
-        ChapterViewEventEntity saved = chapterViewEventRepository.save(event);
-
-        // Upsert read_progress
-        ReadProgressEntity progress = readProgressRepository
-                .findByUserIdAndWalkthroughId(userId, walkthroughId)
-                .orElse(ReadProgressEntity.builder()
-                        .userId(userId)
-                        .walkthroughId(walkthroughId)
-                        .readChapters(0)
-                        .totalChapters(walkthrough.getChapters().size())
-                        .timeSpentSec(0)
-                        .readAt(Instant.now())
-                        .build());
-
-        progress.setLastChapterId(request.getChapterId());
-        progress.setTotalChapters(walkthrough.getChapters().size());
-        progress.setTimeSpentSec(progress.getTimeSpentSec() +
-                (request.getTimeSpentSec() != null ? request.getTimeSpentSec() : 0));
-        progress.setReadAt(Instant.now());
-
-        if (isFirstVisit) {
-            progress.setReadChapters(progress.getReadChapters() + 1);
-        }
-
-        readProgressRepository.save(progress);
-
-        return saved;
-    }
-
-    @Override
-    public List<ReadProgressEntity> listRecentlyReviewed(UUID userId) {
-        return readProgressRepository.findRecentlyReviewed(userId);
-    }
-
-    @Override
-    public ReadProgressEntity getReadProgress(UUID userId, UUID walkthroughId) {
-        return readProgressRepository
-                .findByUserIdAndWalkthroughId(userId, walkthroughId)
-                .orElse(ReadProgressEntity.builder()
-                        .userId(userId)
-                        .walkthroughId(walkthroughId)
-                        .readChapters(0)
-                        .totalChapters(0)
-                        .timeSpentSec(0)
-                        .readAt(Instant.now())
-                        .build());
     }
 
     // ── Private helpers ──

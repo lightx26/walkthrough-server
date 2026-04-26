@@ -1,6 +1,5 @@
 package com.pet.walkthroughserver.modules.search.business.services;
 
-import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.springframework.data.domain.Page;

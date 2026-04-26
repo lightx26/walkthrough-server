@@ -6,7 +6,7 @@ import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 
 import com.pet.walkthroughserver.configs.RabbitMQConfig;
-import com.pet.walkthroughserver.modules.comment.business.services.CommentService;
+import com.pet.walkthroughserver.modules.comment.business.services.GitHubCommentService;
 import com.pet.walkthroughserver.modules.comment.business.util.DiffPositionParser;
 import com.pet.walkthroughserver.modules.comment.repository.CommentEntity;
 import com.pet.walkthroughserver.modules.comment.repository.CommentRepository;
@@ -28,7 +28,7 @@ public class CommentSyncConsumer {
     private final CommentRepository commentRepository;
     private final WalkthroughRepository walkthroughRepository;
     private final WalkthroughFileRepository walkthroughFileRepository;
-    private final CommentService commentService;
+    private final GitHubCommentService gitHubCommentService;
     private final UserService userService;
 
     @RabbitListener(queues = RabbitMQConfig.COMMENT_QUEUE)
@@ -110,7 +110,7 @@ public class CommentSyncConsumer {
         try {
             // Post using the commenter's token so the GitHub comment is attributed
             // to the person who actually wrote it.
-            Long githubCommentId = commentService.createPrReviewComment(
+            Long githubCommentId = gitHubCommentService.createPrReviewComment(
                     comment.getUserId(),
                     walkthrough.getOwner(),
                     walkthrough.getRepo(),
@@ -144,7 +144,7 @@ public class CommentSyncConsumer {
 
         // Post using the commenter's token so the GitHub comment is attributed
         // to the person who actually wrote it.
-        Long githubCommentId = commentService.createPrComment(
+        Long githubCommentId = gitHubCommentService.createPrComment(
                 comment.getUserId(),
                 walkthrough.getOwner(),
                 walkthrough.getRepo(),

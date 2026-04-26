@@ -12,7 +12,6 @@ import com.pet.walkthroughserver.modules.profile.presentation.dto.PinnedWalkthro
 import com.pet.walkthroughserver.modules.profile.presentation.dto.ProfileResponse;
 import com.pet.walkthroughserver.modules.profile.presentation.dto.ProfileStatsResponse;
 import com.pet.walkthroughserver.modules.profile.presentation.dto.ReorderPinsRequest;
-import com.pet.walkthroughserver.modules.walkthrough.business.services.WalkthroughService;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.WalkthroughSummaryResponse;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.mapper.WalkthroughPresentationMapper;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughEntity;
