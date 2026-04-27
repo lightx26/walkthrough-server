@@ -4,6 +4,7 @@ import java.util.UUID;
 
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.pet.walkthroughserver.configs.RabbitMQConfig;
 import com.pet.walkthroughserver.modules._shared.infra.messaging.WalkthroughEventMessage;
@@ -29,6 +30,7 @@ public class WalkthroughSearchSyncConsumer {
     private final WalkthroughDocumentMapper documentMapper;
 
     @RabbitListener(queues = RabbitMQConfig.WALKTHROUGH_SEARCH_SYNC_QUEUE)
+    @Transactional(readOnly = true)
     public void handleWalkthroughEvent(WalkthroughEventMessage message) {
         log.info("Received {} for walkthrough {}", message.getEventType(), message.getWalkthroughId());
 

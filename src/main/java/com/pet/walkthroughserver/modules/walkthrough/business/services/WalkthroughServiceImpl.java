@@ -2,6 +2,7 @@ package com.pet.walkthroughserver.modules.walkthrough.business.services;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
@@ -15,6 +16,7 @@ import com.pet.walkthroughserver.modules.walkthrough.business.events.Walkthrough
 import com.pet.walkthroughserver.modules.walkthrough.business.events.WalkthroughDeletedEvent;
 import com.pet.walkthroughserver.modules.walkthrough.business.events.WalkthroughEventPublisher;
 import com.pet.walkthroughserver.modules.walkthrough.business.events.WalkthroughUpdatedEvent;
+import com.pet.walkthroughserver.modules.walkthrough.business.util.WalkthroughSnapshotSerializer;
 import com.pet.walkthroughserver.modules.walkthrough.exceptions.WalkthroughAccessDeniedException;
 import com.pet.walkthroughserver.modules.walkthrough.exceptions.WalkthroughNotFoundException;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.AnnotationRequest;
@@ -30,11 +32,8 @@ import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughRepos
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughSnapshotEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughSnapshotRepository;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughStatus;
-import com.pet.walkthroughserver.modules.walkthrough.business.util.WalkthroughSnapshotSerializer;
 
 import lombok.RequiredArgsConstructor;
-
-import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -84,10 +83,8 @@ public class WalkthroughServiceImpl implements WalkthroughService {
     public WalkthroughEntity getById(UUID id, UUID requestingUserId) {
         WalkthroughEntity walkthrough = walkthroughRepository.findById(id)
                 .orElseThrow(() -> new WalkthroughNotFoundException("Walkthrough not found"));
-        if (walkthrough.getStatus() == WalkthroughStatus.DRAFT && !walkthrough.getUserId().equals(requestingUserId)) {
-            throw new WalkthroughNotFoundException("Walkthrough not found");
-        }
-        if (walkthrough.getStatus() == WalkthroughStatus.OUTDATED && !walkthrough.getUserId().equals(requestingUserId)) {
+        boolean isOwner = walkthrough.getUserId().equals(requestingUserId);
+        if (!isOwner && walkthrough.getStatus() != WalkthroughStatus.PUBLISHED) {
             throw new WalkthroughNotFoundException("Walkthrough not found");
         }
         return walkthrough;
@@ -108,8 +105,9 @@ public class WalkthroughServiceImpl implements WalkthroughService {
         WalkthroughEntity saved = walkthroughRepository.save(walkthrough);
         publishAfterCommit(new WalkthroughUpdatedEvent(saved.getId(), Instant.now()));
 
-        // Capture snapshot when publishing
+        // When publishing, archive any other published walkthroughs in the same PR
         if (saved.getStatus() == WalkthroughStatus.PUBLISHED) {
+            archiveOtherPublished(saved);
             captureSnapshot(saved);
         }
 
@@ -126,6 +124,19 @@ public class WalkthroughServiceImpl implements WalkthroughService {
     }
 
     // ── Private helpers ──
+
+    private void archiveOtherPublished(WalkthroughEntity published) {
+        List<WalkthroughEntity> others = walkthroughRepository
+                .findByOwnerAndRepoAndPrNumberAndStatus(
+                        published.getOwner(), published.getRepo(),
+                        published.getPrNumber(), WalkthroughStatus.PUBLISHED);
+        for (WalkthroughEntity other : others) {
+            if (!other.getId().equals(published.getId())) {
+                other.setStatus(WalkthroughStatus.DEPRECATED);
+                walkthroughRepository.save(other);
+            }
+        }
+    }
 
     private void captureSnapshot(WalkthroughEntity walkthrough) {
         if (snapshotRepository.findByWalkthroughIdAndVersion(

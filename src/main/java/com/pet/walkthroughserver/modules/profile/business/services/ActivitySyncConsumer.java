@@ -1,5 +1,13 @@
 package com.pet.walkthroughserver.modules.profile.business.services;
 
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.stereotype.Component;
+
 import com.pet.walkthroughserver.configs.RabbitMQConfig;
 import com.pet.walkthroughserver.modules._shared.infra.messaging.WalkthroughEventMessage;
 import com.pet.walkthroughserver.modules.profile.repository.ActivityEntryEntity;
@@ -9,15 +17,9 @@ import com.pet.walkthroughserver.modules.profile.repository.ActivityVisibility;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughRepository;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughStatus;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.amqp.rabbit.annotation.RabbitListener;
-import org.springframework.stereotype.Component;
-
-import java.time.Instant;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
 
 @Slf4j
 @Component
@@ -33,15 +35,15 @@ public class ActivitySyncConsumer {
                 message.getEventType(), message.getWalkthroughId());
 
         Optional<WalkthroughEntity> walkthroughOpt = walkthroughRepository.findById(message.getWalkthroughId());
-        if (walkthroughOpt.isEmpty() && !"walkthrough.deleted".equals(message.getEventType())) {
+        if (walkthroughOpt.isEmpty() && !"WALKTHROUGH_DELETED".equals(message.getEventType())) {
             log.warn("Walkthrough {} not found, skipping activity entry", message.getWalkthroughId());
             return;
         }
 
         switch (message.getEventType()) {
-            case "walkthrough.created" -> handleWalkthroughCreated(walkthroughOpt.get(), message);
-            case "walkthrough.updated" -> handleWalkthroughUpdated(walkthroughOpt.get(), message);
-            case "walkthrough.deleted" -> log.debug("Walkthrough deleted, no activity entry needed");
+            case "WALKTHROUGH_CREATED" -> handleWalkthroughCreated(walkthroughOpt.get(), message);
+            case "WALKTHROUGH_UPDATED" -> handleWalkthroughUpdated(walkthroughOpt.get(), message);
+            case "WALKTHROUGH_DELETED" -> log.debug("Walkthrough deleted, no activity entry needed");
             default -> log.warn("Unknown event type: {}", message.getEventType());
         }
     }
