@@ -128,6 +128,31 @@ public class WalkthroughServiceImpl implements WalkthroughService {
         return walkthroughRepository.countByOwnerAndRepo(owner, repo);
     }
 
+    @Override
+    public long countByPr(String owner, String repo, int prNumber) {
+        return walkthroughRepository.countByOwnerAndRepoAndPrNumber(owner, repo, prNumber);
+    }
+
+    @Override
+    public Map<String, Long> countByRepos(List<String> repoFullNames) {
+        if (repoFullNames.isEmpty()) return Map.of();
+        return walkthroughRepository.countByRepoFullNames(repoFullNames).stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        row -> (String) row[0],
+                        row -> (Long) row[1]
+                ));
+    }
+
+    @Override
+    public Map<Integer, Long> countByPrs(String owner, String repo, List<Integer> prNumbers) {
+        if (prNumbers.isEmpty()) return Map.of();
+        return walkthroughRepository.countByPrNumbers(owner, repo, prNumbers).stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        row -> (Integer) row[0],
+                        row -> (Long) row[1]
+                ));
+    }
+
     // ── Private helpers ──
 
     private void archiveOtherPublished(WalkthroughEntity published) {

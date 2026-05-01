@@ -1,5 +1,18 @@
 package com.pet.walkthroughserver.modules.githubrepo.presentation;
 
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.pet.walkthroughserver.interceptors.DataResponse;
 import com.pet.walkthroughserver.modules._shared.dto.ListData;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubRepository;
@@ -8,17 +21,8 @@ import com.pet.walkthroughserver.modules.githubrepo.presentation.dto.RepositoryR
 import com.pet.walkthroughserver.modules.githubrepo.presentation.mapper.RepositoryPresentationMapper;
 import com.pet.walkthroughserver.modules.walkthrough.business.services.WalkthroughService;
 import com.pet.walkthroughserver.security.AuthUser;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/v1/github")
@@ -41,17 +45,30 @@ public class GitHubRepoController {
         List<GitHubRepository> repos = (q != null && !q.isBlank())
                 ? gitHubRepoService.searchRepositories(userId, q, page, perPage)
                 : gitHubRepoService.getUserRepositories(userId, page, perPage, sort);
+        List<String> fullNames = repos.stream()
+                .map(GitHubRepository::getFullName)
+                .toList();
+        Map<String, Long> countMap = walkthroughService.countByRepos(fullNames);
         List<RepositoryResponse> responses = repos.stream()
-                .map(repo -> {
-                    String[] parts = repo.getFullName().split("/", 2);
-                    long walkthroughsCount = parts.length == 2
-                            ? walkthroughService.countByRepo(parts[0], parts[1])
-                            : 0L;
-                    return repositoryMapper.toResponse(repo).toBuilder()
-                            .walkthroughsCount(walkthroughsCount)
-                            .build();
-                })
+                .map(repo -> repositoryMapper.toResponse(repo).toBuilder()
+                        .walkthroughsCount(countMap.getOrDefault(repo.getFullName(), 0L))
+                        .build())
                 .toList();
         return ResponseEntity.ok(DataResponse.of(ListData.of(responses)));
+    }
+
+    @GetMapping("/repos/{owner}/{repo}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<DataResponse<RepositoryResponse>> getRepository(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable String owner,
+            @PathVariable String repo) {
+        UUID userId = UUID.fromString(authUser.getUserId());
+        GitHubRepository repository = gitHubRepoService.getRepository(userId, owner, repo);
+        long walkthroughsCount = walkthroughService.countByRepo(owner, repo);
+        RepositoryResponse response = repositoryMapper.toResponse(repository).toBuilder()
+                .walkthroughsCount(walkthroughsCount)
+                .build();
+        return ResponseEntity.ok(DataResponse.of(response));
     }
 }

@@ -39,6 +39,17 @@ public interface WalkthroughRepository extends JpaRepository<WalkthroughEntity, 
 
     long countByOwnerAndRepo(String owner, String repo);
 
+    long countByOwnerAndRepoAndPrNumber(String owner, String repo, Integer prNumber);
+
+    @Query("SELECT CONCAT(w.owner, '/', w.repo) AS fullName, COUNT(w) " +
+            "FROM WalkthroughEntity w WHERE CONCAT(w.owner, '/', w.repo) IN :fullNames GROUP BY w.owner, w.repo")
+    List<Object[]> countByRepoFullNames(@Param("fullNames") List<String> fullNames);
+
+    @Query("SELECT w.prNumber, COUNT(w) FROM WalkthroughEntity w " +
+            "WHERE w.owner = :owner AND w.repo = :repo AND w.prNumber IN :prNumbers GROUP BY w.prNumber")
+    List<Object[]> countByPrNumbers(@Param("owner") String owner, @Param("repo") String repo,
+                                    @Param("prNumbers") List<Integer> prNumbers);
+
     List<WalkthroughEntity> findByOwnerAndRepoAndPrNumberAndStatus(
             String owner, String repo, Integer prNumber, WalkthroughStatus status);
 }

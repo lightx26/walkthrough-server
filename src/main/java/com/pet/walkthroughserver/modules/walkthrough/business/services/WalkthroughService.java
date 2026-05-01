@@ -1,6 +1,7 @@
 package com.pet.walkthroughserver.modules.walkthrough.business.services;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.CreateWalkthroughRequest;
@@ -22,4 +23,10 @@ public interface WalkthroughService {
     void delete(UUID userId, UUID walkthroughId);
 
     long countByRepo(String owner, String repo);
+
+    long countByPr(String owner, String repo, int prNumber);
+
+    Map<String, Long> countByRepos(List<String> repoFullNames);
+
+    Map<Integer, Long> countByPrs(String owner, String repo, List<Integer> prNumbers);
 }

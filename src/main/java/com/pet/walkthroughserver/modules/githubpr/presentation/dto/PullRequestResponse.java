@@ -2,6 +2,7 @@ package com.pet.walkthroughserver.modules.githubpr.presentation.dto;
 
 import lombok.Builder;
 import lombok.Getter;
+import lombok.Setter;
 
 @Getter
 @Builder
@@ -23,6 +24,8 @@ public class PullRequestResponse {
     private Author author;
     private Branch head;
     private Branch base;
+    @Setter
+    private long walkthroughsCount;
 
     @Getter
     @Builder

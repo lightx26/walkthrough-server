@@ -32,6 +32,12 @@ public class GitHubRepoServiceImpl implements GitHubRepoService {
         return gitHubResourceClient.searchRepositories(accessToken, scopedQuery, page, perPage).getItems();
     }
 
+    @Override
+    public GitHubRepository getRepository(UUID userId, String owner, String repo) {
+        String accessToken = getGitHubAccessToken(userId);
+        return gitHubResourceClient.fetchRepository(accessToken, owner, repo);
+    }
+
     private String getGitHubAccessToken(UUID userId) {
         return getAccessTokenFromUser(userService.findById(userId));
     }

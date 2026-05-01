@@ -10,4 +10,6 @@ public interface GitHubRepoService {
     List<GitHubRepository> getUserRepositories(UUID userId, int page, int perPage, String sort);
 
     List<GitHubRepository> searchRepositories(UUID userId, String query, int page, int perPage);
+
+    GitHubRepository getRepository(UUID userId, String owner, String repo);
 }

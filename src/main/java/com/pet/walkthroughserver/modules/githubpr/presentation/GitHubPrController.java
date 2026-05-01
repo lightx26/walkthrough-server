@@ -1,5 +1,20 @@
 package com.pet.walkthroughserver.modules.githubpr.presentation;
 
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.pet.walkthroughserver.interceptors.DataResponse;
 import com.pet.walkthroughserver.modules._shared.dto.ListData;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubCommit;
@@ -13,17 +28,10 @@ import com.pet.walkthroughserver.modules.githubpr.presentation.dto.RecentPullReq
 import com.pet.walkthroughserver.modules.githubpr.presentation.mapper.CommitPresentationMapper;
 import com.pet.walkthroughserver.modules.githubpr.presentation.mapper.FileChangePresentationMapper;
 import com.pet.walkthroughserver.modules.githubpr.presentation.mapper.PullRequestPresentationMapper;
+import com.pet.walkthroughserver.modules.walkthrough.business.services.WalkthroughService;
 import com.pet.walkthroughserver.security.AuthUser;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-import java.util.UUID;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/v1/github")
@@ -31,6 +39,7 @@ import java.util.regex.Pattern;
 public class GitHubPrController {
 
     private final GitHubPrService gitHubPrService;
+    private final WalkthroughService walkthroughService;
     private final PullRequestPresentationMapper pullRequestMapper;
     private final CommitPresentationMapper commitMapper;
     private final FileChangePresentationMapper fileChangeMapper;
@@ -46,7 +55,14 @@ public class GitHubPrController {
             @RequestParam(defaultValue = "30") int perPage) {
         List<GitHubPullRequest> prs = gitHubPrService.getPullRequests(
                 UUID.fromString(authUser.getUserId()), owner, repo, state, page, perPage);
-        return ResponseEntity.ok(DataResponse.of(ListData.of(pullRequestMapper.toResponseList(prs))));
+        List<PullRequestResponse> responses = pullRequestMapper.toResponseList(prs);
+        List<Integer> prNumbers = responses.stream()
+                .map(PullRequestResponse::getNumber)
+                .toList();
+        Map<Integer, Long> countMap = walkthroughService.countByPrs(owner, repo, prNumbers);
+        responses.forEach(pr -> pr.setWalkthroughsCount(
+                countMap.getOrDefault(pr.getNumber(), 0L)));
+        return ResponseEntity.ok(DataResponse.of(ListData.of(responses)));
     }
 
     @GetMapping("/repos/{owner}/{repo}/pulls/{pullNumber}")

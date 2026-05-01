@@ -16,6 +16,8 @@ public interface GitHubResourceClient {
 
     List<GitHubRepository> fetchUserRepositories(String accessToken, int page, int perPage, String sort);
 
+    GitHubRepository fetchRepository(String accessToken, String owner, String repo);
+
     GitHubSearchReposResponse searchRepositories(String accessToken, String query, int page, int perPage);
 
     List<GitHubPullRequest> fetchPullRequests(String accessToken, String owner, String repo, String state, int page, int perPage);

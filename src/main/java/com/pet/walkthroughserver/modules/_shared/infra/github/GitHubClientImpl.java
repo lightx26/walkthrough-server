@@ -101,6 +101,23 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
     }
 
     @Override
+    public GitHubRepository fetchRepository(String accessToken, String owner, String repo) {
+        GitHubRepository repository = restClient.get()
+                .uri(GITHUB_API_URL + "/repos/{owner}/{repo}", owner, repo)
+                .header("Authorization", "Bearer " + accessToken)
+                .accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .body(GitHubRepository.class);
+
+        if (repository == null) {
+            throw new GitHubResourceNotFoundException("Repository not found: " + owner + "/" + repo);
+        }
+
+        log.info("GitHub API [GET /repos/{}/{}] — success", owner, repo);
+        return repository;
+    }
+
+    @Override
     public GitHubSearchReposResponse searchRepositories(String accessToken, String query, int page, int perPage) {
         GitHubSearchReposResponse response = restClient.get()
                 .uri(GITHUB_API_URL + "/search/repositories?q={query}&page={page}&per_page={perPage}&sort=updated",
