@@ -5,7 +5,7 @@ import lombok.Builder;
 import lombok.Getter;
 
 @Getter
-@Builder
+@Builder(toBuilder = true)
 public class RepositoryResponse {
 
     private Long id;
@@ -21,6 +21,8 @@ public class RepositoryResponse {
     private int stargazersCount;
     private int forksCount;
     private int openIssuesCount;
+    private int openPrsCount;
+    private long walkthroughsCount;
     private String updatedAt;
     private Owner owner;
 

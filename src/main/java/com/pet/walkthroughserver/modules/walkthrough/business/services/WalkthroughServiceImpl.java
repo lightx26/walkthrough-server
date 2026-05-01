@@ -123,6 +123,11 @@ public class WalkthroughServiceImpl implements WalkthroughService {
         publishAfterCommit(new WalkthroughDeletedEvent(walkthroughId, Instant.now()));
     }
 
+    @Override
+    public long countByRepo(String owner, String repo) {
+        return walkthroughRepository.countByOwnerAndRepo(owner, repo);
+    }
+
     // ── Private helpers ──
 
     private void archiveOtherPublished(WalkthroughEntity published) {

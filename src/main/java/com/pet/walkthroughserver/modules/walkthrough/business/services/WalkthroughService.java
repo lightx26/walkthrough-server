@@ -20,4 +20,6 @@ public interface WalkthroughService {
     WalkthroughEntity update(UUID userId, UUID walkthroughId, UpdateWalkthroughRequest request);
 
     void delete(UUID userId, UUID walkthroughId);
+
+    long countByRepo(String owner, String repo);
 }

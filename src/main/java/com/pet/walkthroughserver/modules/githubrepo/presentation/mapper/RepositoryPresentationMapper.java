@@ -12,6 +12,7 @@ import java.util.List;
 public interface RepositoryPresentationMapper {
 
     @Mapping(source = "private", target = "isPrivate")
+    @Mapping(source = "openIssuesCount", target = "openPrsCount")
     RepositoryResponse toResponse(GitHubRepository repo);
 
     List<RepositoryResponse> toResponseList(List<GitHubRepository> repos);

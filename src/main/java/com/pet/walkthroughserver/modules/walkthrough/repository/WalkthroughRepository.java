@@ -37,6 +37,8 @@ public interface WalkthroughRepository extends JpaRepository<WalkthroughEntity, 
             "WHERE cm.walkthroughId = w.id AND w.userId = :userId")
     long countCommentsByUserId(@Param("userId") UUID userId);
 
+    long countByOwnerAndRepo(String owner, String repo);
+
     List<WalkthroughEntity> findByOwnerAndRepoAndPrNumberAndStatus(
             String owner, String repo, Integer prNumber, WalkthroughStatus status);
 }

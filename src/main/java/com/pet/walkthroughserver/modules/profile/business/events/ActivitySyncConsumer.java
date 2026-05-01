@@ -1,4 +1,4 @@
-package com.pet.walkthroughserver.modules.profile.business.services;
+package com.pet.walkthroughserver.modules.profile.business.events;
 
 import java.time.Instant;
 import java.util.HashMap;

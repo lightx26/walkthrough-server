@@ -1,6 +1,7 @@
 package com.pet.walkthroughserver.modules.walkthrough.presentation;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
@@ -93,20 +94,25 @@ public class WalkthroughController {
         List<ReadProgressEntity> progressList = readProgressService.listRecentlyReviewed(userId);
         List<RecentlyReviewedResponse> responses = progressList.stream()
                 .map(progress -> {
-                    WalkthroughEntity wt = walkthroughService.getById(progress.getWalkthroughId(), userId);
-                    return RecentlyReviewedResponse.builder()
-                            .walkthroughId(wt.getId())
-                            .title(wt.getTitle())
-                            .owner(wt.getOwner())
-                            .repo(wt.getRepo())
-                            .prNumber(wt.getPrNumber())
-                            .status(wt.getStatus())
-                            .readChapters(progress.getReadChapters())
-                            .totalChapters(progress.getTotalChapters())
-                            .timeSpentSec(progress.getTimeSpentSec())
-                            .lastReadAt(progress.getReadAt())
-                            .build();
+                    try {
+                        WalkthroughEntity wt = walkthroughService.getById(progress.getWalkthroughId(), userId);
+                        return RecentlyReviewedResponse.builder()
+                                .walkthroughId(wt.getId())
+                                .title(wt.getTitle())
+                                .owner(wt.getOwner())
+                                .repo(wt.getRepo())
+                                .prNumber(wt.getPrNumber())
+                                .status(wt.getStatus())
+                                .readChapters(progress.getReadChapters())
+                                .totalChapters(progress.getTotalChapters())
+                                .timeSpentSec(progress.getTimeSpentSec())
+                                .lastReadAt(progress.getReadAt())
+                                .build();
+                    } catch (Exception e) {
+                        return null;
+                    }
                 })
+                .filter(Objects::nonNull)
                 .toList();
         return ResponseEntity.ok(DataResponse.of(ListData.of(responses)));
     }

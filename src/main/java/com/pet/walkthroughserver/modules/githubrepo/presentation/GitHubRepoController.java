@@ -6,6 +6,7 @@ import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubReposito
 import com.pet.walkthroughserver.modules.githubrepo.business.services.GitHubRepoService;
 import com.pet.walkthroughserver.modules.githubrepo.presentation.dto.RepositoryResponse;
 import com.pet.walkthroughserver.modules.githubrepo.presentation.mapper.RepositoryPresentationMapper;
+import com.pet.walkthroughserver.modules.walkthrough.business.services.WalkthroughService;
 import com.pet.walkthroughserver.security.AuthUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -26,6 +27,7 @@ public class GitHubRepoController {
 
     private final GitHubRepoService gitHubRepoService;
     private final RepositoryPresentationMapper repositoryMapper;
+    private final WalkthroughService walkthroughService;
 
     @GetMapping("/repos")
     @PreAuthorize("isAuthenticated()")
@@ -39,6 +41,17 @@ public class GitHubRepoController {
         List<GitHubRepository> repos = (q != null && !q.isBlank())
                 ? gitHubRepoService.searchRepositories(userId, q, page, perPage)
                 : gitHubRepoService.getUserRepositories(userId, page, perPage, sort);
-        return ResponseEntity.ok(DataResponse.of(ListData.of(repositoryMapper.toResponseList(repos))));
+        List<RepositoryResponse> responses = repos.stream()
+                .map(repo -> {
+                    String[] parts = repo.getFullName().split("/", 2);
+                    long walkthroughsCount = parts.length == 2
+                            ? walkthroughService.countByRepo(parts[0], parts[1])
+                            : 0L;
+                    return repositoryMapper.toResponse(repo).toBuilder()
+                            .walkthroughsCount(walkthroughsCount)
+                            .build();
+                })
+                .toList();
+        return ResponseEntity.ok(DataResponse.of(ListData.of(responses)));
     }
 }
