@@ -73,6 +73,9 @@ public class WalkthroughController {
         UUID userId = UUID.fromString(authUser.getUserId());
         List<WalkthroughEntity> entities = walkthroughService.listByPr(owner, repo, prNumber, userId);
         List<WalkthroughSummaryResponse> summaries = walkthroughMapper.toSummaryResponseList(entities);
+        List<UUID> ids = entities.stream().map(WalkthroughEntity::getId).toList();
+        var commentCounts = walkthroughService.getCommentCounts(ids);
+        summaries.forEach(s -> s.setCommentCount(commentCounts.getOrDefault(s.getId(), 0L).intValue()));
         return ResponseEntity.ok(DataResponse.of(ListData.of(summaries)));
     }
 

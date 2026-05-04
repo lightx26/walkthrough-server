@@ -21,4 +21,10 @@ public interface CommentRepository extends JpaRepository<CommentEntity, UUID> {
     Optional<CommentEntity> findByIdAndUserId(UUID id, UUID userId);
 
     List<CommentEntity> findBySyncStatusAndRetryCountLessThan(String syncStatus, int maxRetries);
+
+    long countByWalkthroughId(UUID walkthroughId);
+
+    @org.springframework.data.jpa.repository.Query(
+            "SELECT c.walkthroughId, COUNT(c) FROM CommentEntity c WHERE c.walkthroughId IN :ids GROUP BY c.walkthroughId")
+    List<Object[]> countGroupedByWalkthroughIds(@org.springframework.data.repository.query.Param("ids") List<UUID> ids);
 }

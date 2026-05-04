@@ -13,6 +13,7 @@ import java.util.List;
 public interface PullRequestPresentationMapper {
 
     @Mapping(source = "user", target = "author")
+    @Mapping(target = "state", expression = "java(pr.getMergedAt() != null ? \"merged\" : pr.getState())")
     PullRequestResponse toResponse(GitHubPullRequest pr);
 
     List<PullRequestResponse> toResponseList(List<GitHubPullRequest> prs);

@@ -1,6 +1,7 @@
 package com.pet.walkthroughserver.modules._shared.infra.github;
 
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubCommit;
+import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPagedResult;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequest;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequestFile;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubRepository;
@@ -14,7 +15,7 @@ import java.util.List;
  */
 public interface GitHubResourceClient {
 
-    List<GitHubRepository> fetchUserRepositories(String accessToken, int page, int perPage, String sort);
+    GitHubPagedResult<GitHubRepository> fetchUserRepositories(String accessToken, int page, int perPage, String sort);
 
     GitHubRepository fetchRepository(String accessToken, String owner, String repo);
 

@@ -1,6 +1,8 @@
 package com.pet.walkthroughserver.modules._shared.infra.github;
 
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
@@ -10,6 +12,7 @@ import org.springframework.web.client.RestClient;
 
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubAccessTokenResponse;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubCommit;
+import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPagedResult;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequest;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequestFile;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubRepository;
@@ -82,22 +85,38 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
 
     // ── GitHubResourceClient ──────────────────────────────────────────
 
+    private static final Pattern LINK_LAST_PAGE_PATTERN =
+            Pattern.compile("<[^>]*[?&]page=(\\d+)[^>]*>;\\s*rel=\"last\"");
+
     @Override
-    public List<GitHubRepository> fetchUserRepositories(String accessToken, int page, int perPage, String sort) {
-        List<GitHubRepository> repos = restClient.get()
+    public GitHubPagedResult<GitHubRepository> fetchUserRepositories(String accessToken, int page, int perPage, String sort) {
+        var response = restClient.get()
                 .uri(GITHUB_USER_API_URL + "/repos?page={page}&per_page={perPage}&sort={sort}&affiliation=owner,collaborator,organization_member",
                         page, perPage, sort)
                 .header("Authorization", "Bearer " + accessToken)
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
-                .body(new ParameterizedTypeReference<>() {});
+                .toEntity(new ParameterizedTypeReference<List<GitHubRepository>>() {});
 
+        List<GitHubRepository> repos = response.getBody();
         if (repos == null) {
             throw new GitHubApiException("Failed to fetch repositories from GitHub");
         }
 
-        log.info("GitHub API [GET /user/repos] — success, count={}", repos.size());
-        return repos;
+        String linkHeader = response.getHeaders().getFirst("Link");
+        int totalPages = parseTotalPagesFromLink(linkHeader, page);
+        long totalElements = (long) totalPages * perPage;
+
+        log.info("GitHub API [GET /user/repos] — success, count={}, totalPages={}", repos.size(), totalPages);
+        return GitHubPagedResult.of(repos, page, totalPages, totalElements);
+    }
+
+    private int parseTotalPagesFromLink(String linkHeader, int currentPage) {
+        if (linkHeader == null || linkHeader.isBlank()) {
+            return currentPage;
+        }
+        Matcher matcher = LINK_LAST_PAGE_PATTERN.matcher(linkHeader);
+        return matcher.find() ? Integer.parseInt(matcher.group(1)) : currentPage;
     }
 
     @Override
@@ -138,9 +157,10 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
     @Override
     public List<GitHubPullRequest> fetchPullRequests(String accessToken, String owner, String repo,
                                                       String state, int page, int perPage) {
+        String githubState = "merged".equals(state) ? "closed" : state;
         List<GitHubPullRequest> pullRequests = restClient.get()
                 .uri(GITHUB_API_URL + "/repos/{owner}/{repo}/pulls?state={state}&page={page}&per_page={perPage}&sort=updated&direction=desc",
-                        owner, repo, state, page, perPage)
+                        owner, repo, githubState, page, perPage)
                 .header("Authorization", "Bearer " + accessToken)
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()

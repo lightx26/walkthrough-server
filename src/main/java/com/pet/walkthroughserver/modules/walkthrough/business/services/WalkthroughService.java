@@ -29,4 +29,6 @@ public interface WalkthroughService {
     Map<String, Long> countByRepos(List<String> repoFullNames);
 
     Map<Integer, Long> countByPrs(String owner, String repo, List<Integer> prNumbers);
+
+    Map<UUID, Long> getCommentCounts(List<UUID> walkthroughIds);
 }

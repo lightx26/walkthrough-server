@@ -30,6 +30,7 @@ import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughEntit
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughFileEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughRepository;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughSnapshotEntity;
+import com.pet.walkthroughserver.modules.comment.repository.CommentRepository;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughSnapshotRepository;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughStatus;
 
@@ -43,6 +44,7 @@ public class WalkthroughServiceImpl implements WalkthroughService {
     private final WalkthroughSnapshotRepository snapshotRepository;
     private final GitHubPrService gitHubPrService;
     private final WalkthroughEventPublisher walkthroughEventPublisher;
+    private final CommentRepository commentRepository;
 
     @Override
     @Transactional
@@ -149,6 +151,16 @@ public class WalkthroughServiceImpl implements WalkthroughService {
         return walkthroughRepository.countByPrNumbers(owner, repo, prNumbers).stream()
                 .collect(java.util.stream.Collectors.toMap(
                         row -> (Integer) row[0],
+                        row -> (Long) row[1]
+                ));
+    }
+
+    @Override
+    public Map<UUID, Long> getCommentCounts(List<UUID> walkthroughIds) {
+        if (walkthroughIds.isEmpty()) return Map.of();
+        return commentRepository.countGroupedByWalkthroughIds(walkthroughIds).stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        row -> (UUID) row[0],
                         row -> (Long) row[1]
                 ));
     }

@@ -21,6 +21,7 @@ public interface WalkthroughPresentationMapper {
     WalkthroughResponse toResponse(WalkthroughEntity entity);
 
     @Mapping(target = "chapterCount", expression = "java(entity.getChapters() != null ? entity.getChapters().size() : 0)")
+    @Mapping(target = "commentCount", ignore = true)
     WalkthroughSummaryResponse toSummaryResponse(WalkthroughEntity entity);
 
     ChapterResponse toChapterResponse(ChapterEntity entity);

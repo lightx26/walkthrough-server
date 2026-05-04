@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.pet.walkthroughserver.interceptors.DataResponse;
-import com.pet.walkthroughserver.modules._shared.dto.ListData;
+import com.pet.walkthroughserver.modules._shared.dto.PageData;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubRepository;
 import com.pet.walkthroughserver.modules.githubrepo.business.services.GitHubRepoService;
 import com.pet.walkthroughserver.modules.githubrepo.presentation.dto.RepositoryResponse;
@@ -35,26 +35,28 @@ public class GitHubRepoController {
 
     @GetMapping("/repos")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<DataResponse<ListData<RepositoryResponse>>> getUserRepositories(
+    public ResponseEntity<DataResponse<PageData<RepositoryResponse>>> getUserRepositories(
             @AuthenticationPrincipal AuthUser authUser,
             @RequestParam(required = false) String q,
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "30") int perPage,
+            @RequestParam(defaultValue = "20") int perPage,
             @RequestParam(defaultValue = "updated") String sort) {
         UUID userId = UUID.fromString(authUser.getUserId());
-        List<GitHubRepository> repos = (q != null && !q.isBlank())
+        PageData<GitHubRepository> pageData = (q != null && !q.isBlank())
                 ? gitHubRepoService.searchRepositories(userId, q, page, perPage)
                 : gitHubRepoService.getUserRepositories(userId, page, perPage, sort);
-        List<String> fullNames = repos.stream()
+        List<String> fullNames = pageData.getItems().stream()
                 .map(GitHubRepository::getFullName)
                 .toList();
         Map<String, Long> countMap = walkthroughService.countByRepos(fullNames);
-        List<RepositoryResponse> responses = repos.stream()
+        List<RepositoryResponse> responses = pageData.getItems().stream()
                 .map(repo -> repositoryMapper.toResponse(repo).toBuilder()
                         .walkthroughsCount(countMap.getOrDefault(repo.getFullName(), 0L))
                         .build())
                 .toList();
-        return ResponseEntity.ok(DataResponse.of(ListData.of(responses)));
+        return ResponseEntity.ok(DataResponse.of(
+                PageData.of(responses, pageData.getPage(), pageData.getSize(), pageData.getTotalElements(), pageData.getTotalPages())
+        ));
     }
 
     @GetMapping("/repos/{owner}/{repo}")

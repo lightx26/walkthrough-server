@@ -1,5 +1,6 @@
 package com.pet.walkthroughserver.modules.githubrepo.business.services;
 
+import com.pet.walkthroughserver.modules._shared.dto.PageData;
 import com.pet.walkthroughserver.modules._shared.infra.github.GitHubResourceClient;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubRepository;
 import com.pet.walkthroughserver.modules._shared.infra.github.exceptions.GitHubAccessTokenNotFoundException;
@@ -19,17 +20,20 @@ public class GitHubRepoServiceImpl implements GitHubRepoService {
     private final UserService userService;
 
     @Override
-    public List<GitHubRepository> getUserRepositories(UUID userId, int page, int perPage, String sort) {
+    public PageData<GitHubRepository> getUserRepositories(UUID userId, int page, int perPage, String sort) {
         String accessToken = getGitHubAccessToken(userId);
-        return gitHubResourceClient.fetchUserRepositories(accessToken, page, perPage, sort);
+        var result = gitHubResourceClient.fetchUserRepositories(accessToken, page, perPage, sort);
+        return PageData.of(result.items(), result.page(), perPage, result.totalElements(), result.totalPages());
     }
 
     @Override
-    public List<GitHubRepository> searchRepositories(UUID userId, String query, int page, int perPage) {
+    public PageData<GitHubRepository> searchRepositories(UUID userId, String query, int page, int perPage) {
         UserEntity user = userService.findById(userId);
         String accessToken = getAccessTokenFromUser(user);
         String scopedQuery = query + " user:" + user.getUsername();
-        return gitHubResourceClient.searchRepositories(accessToken, scopedQuery, page, perPage).getItems();
+        var response = gitHubResourceClient.searchRepositories(accessToken, scopedQuery, page, perPage);
+        int totalPages = (int) Math.ceil((double) response.getTotalCount() / perPage);
+        return PageData.of(response.getItems(), page, perPage, response.getTotalCount(), totalPages);
     }
 
     @Override

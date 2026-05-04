@@ -50,7 +50,7 @@ public class GitHubPrController {
             @AuthenticationPrincipal AuthUser authUser,
             @PathVariable String owner,
             @PathVariable String repo,
-            @RequestParam(defaultValue = "open") String state,
+            @RequestParam(defaultValue = "all") String state,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "30") int perPage) {
         List<GitHubPullRequest> prs = gitHubPrService.getPullRequests(
