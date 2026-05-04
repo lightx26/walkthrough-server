@@ -48,7 +48,7 @@ public class GitHubRepoController {
         List<String> fullNames = pageData.getItems().stream()
                 .map(GitHubRepository::getFullName)
                 .toList();
-        Map<String, Long> countMap = walkthroughService.countByRepos(fullNames);
+        Map<String, Long> countMap = walkthroughService.countByRepos(fullNames, userId);
         List<RepositoryResponse> responses = pageData.getItems().stream()
                 .map(repo -> repositoryMapper.toResponse(repo).toBuilder()
                         .walkthroughsCount(countMap.getOrDefault(repo.getFullName(), 0L))
@@ -67,7 +67,7 @@ public class GitHubRepoController {
             @PathVariable String repo) {
         UUID userId = UUID.fromString(authUser.getUserId());
         GitHubRepository repository = gitHubRepoService.getRepository(userId, owner, repo);
-        long walkthroughsCount = walkthroughService.countByRepo(owner, repo);
+        long walkthroughsCount = walkthroughService.countByRepo(owner, repo, userId);
         RepositoryResponse response = repositoryMapper.toResponse(repository).toBuilder()
                 .walkthroughsCount(walkthroughsCount)
                 .build();

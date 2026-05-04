@@ -126,19 +126,19 @@ public class WalkthroughServiceImpl implements WalkthroughService {
     }
 
     @Override
-    public long countByRepo(String owner, String repo) {
-        return walkthroughRepository.countByOwnerAndRepo(owner, repo);
+    public long countByRepo(String owner, String repo, UUID requestingUserId) {
+        return walkthroughRepository.countByOwnerAndRepoForUser(owner, repo, requestingUserId);
     }
 
     @Override
-    public long countByPr(String owner, String repo, int prNumber) {
-        return walkthroughRepository.countByOwnerAndRepoAndPrNumber(owner, repo, prNumber);
+    public long countByPr(String owner, String repo, int prNumber, UUID requestingUserId) {
+        return walkthroughRepository.countByOwnerAndRepoAndPrNumberForUser(owner, repo, prNumber, requestingUserId);
     }
 
     @Override
-    public Map<String, Long> countByRepos(List<String> repoFullNames) {
+    public Map<String, Long> countByRepos(List<String> repoFullNames, UUID requestingUserId) {
         if (repoFullNames.isEmpty()) return Map.of();
-        return walkthroughRepository.countByRepoFullNames(repoFullNames).stream()
+        return walkthroughRepository.countByRepoFullNamesForUser(repoFullNames, requestingUserId).stream()
                 .collect(java.util.stream.Collectors.toMap(
                         row -> (String) row[0],
                         row -> (Long) row[1]
@@ -146,9 +146,9 @@ public class WalkthroughServiceImpl implements WalkthroughService {
     }
 
     @Override
-    public Map<Integer, Long> countByPrs(String owner, String repo, List<Integer> prNumbers) {
+    public Map<Integer, Long> countByPrs(String owner, String repo, List<Integer> prNumbers, UUID requestingUserId) {
         if (prNumbers.isEmpty()) return Map.of();
-        return walkthroughRepository.countByPrNumbers(owner, repo, prNumbers).stream()
+        return walkthroughRepository.countByPrNumbersForUser(owner, repo, prNumbers, requestingUserId).stream()
                 .collect(java.util.stream.Collectors.toMap(
                         row -> (Integer) row[0],
                         row -> (Long) row[1]

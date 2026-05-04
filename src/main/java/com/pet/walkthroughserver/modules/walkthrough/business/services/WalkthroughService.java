@@ -22,13 +22,13 @@ public interface WalkthroughService {
 
     void delete(UUID userId, UUID walkthroughId);
 
-    long countByRepo(String owner, String repo);
+    long countByRepo(String owner, String repo, UUID requestingUserId);
 
-    long countByPr(String owner, String repo, int prNumber);
+    long countByPr(String owner, String repo, int prNumber, UUID requestingUserId);
 
-    Map<String, Long> countByRepos(List<String> repoFullNames);
+    Map<String, Long> countByRepos(List<String> repoFullNames, UUID requestingUserId);
 
-    Map<Integer, Long> countByPrs(String owner, String repo, List<Integer> prNumbers);
+    Map<Integer, Long> countByPrs(String owner, String repo, List<Integer> prNumbers, UUID requestingUserId);
 
     Map<UUID, Long> getCommentCounts(List<UUID> walkthroughIds);
 }

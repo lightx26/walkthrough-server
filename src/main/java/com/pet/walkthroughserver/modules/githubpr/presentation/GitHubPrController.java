@@ -53,13 +53,13 @@ public class GitHubPrController {
             @RequestParam(defaultValue = "all") String state,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "30") int perPage) {
-        List<GitHubPullRequest> prs = gitHubPrService.getPullRequests(
-                UUID.fromString(authUser.getUserId()), owner, repo, state, page, perPage);
+        UUID userId = UUID.fromString(authUser.getUserId());
+        List<GitHubPullRequest> prs = gitHubPrService.getPullRequests(userId, owner, repo, state, page, perPage);
         List<PullRequestResponse> responses = pullRequestMapper.toResponseList(prs);
         List<Integer> prNumbers = responses.stream()
                 .map(PullRequestResponse::getNumber)
                 .toList();
-        Map<Integer, Long> countMap = walkthroughService.countByPrs(owner, repo, prNumbers);
+        Map<Integer, Long> countMap = walkthroughService.countByPrs(owner, repo, prNumbers, userId);
         responses.forEach(pr -> pr.setWalkthroughsCount(
                 countMap.getOrDefault(pr.getNumber(), 0L)));
         return ResponseEntity.ok(DataResponse.of(ListData.of(responses)));

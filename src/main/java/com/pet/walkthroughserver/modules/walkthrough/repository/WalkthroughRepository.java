@@ -37,18 +37,35 @@ public interface WalkthroughRepository extends JpaRepository<WalkthroughEntity, 
             "WHERE cm.walkthroughId = w.id AND w.userId = :userId")
     long countCommentsByUserId(@Param("userId") UUID userId);
 
-    long countByOwnerAndRepo(String owner, String repo);
+    @Query("SELECT COUNT(w) FROM WalkthroughEntity w " +
+            "WHERE w.owner = :owner AND w.repo = :repo " +
+            "AND (w.status <> com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughStatus.DRAFT " +
+            "OR w.userId = :userId)")
+    long countByOwnerAndRepoForUser(@Param("owner") String owner, @Param("repo") String repo,
+                                    @Param("userId") UUID userId);
 
-    long countByOwnerAndRepoAndPrNumber(String owner, String repo, Integer prNumber);
+    @Query("SELECT COUNT(w) FROM WalkthroughEntity w " +
+            "WHERE w.owner = :owner AND w.repo = :repo AND w.prNumber = :prNumber " +
+            "AND (w.status <> com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughStatus.DRAFT " +
+            "OR w.userId = :userId)")
+    long countByOwnerAndRepoAndPrNumberForUser(@Param("owner") String owner, @Param("repo") String repo,
+                                               @Param("prNumber") Integer prNumber, @Param("userId") UUID userId);
 
     @Query("SELECT CONCAT(w.owner, '/', w.repo) AS fullName, COUNT(w) " +
-            "FROM WalkthroughEntity w WHERE CONCAT(w.owner, '/', w.repo) IN :fullNames GROUP BY w.owner, w.repo")
-    List<Object[]> countByRepoFullNames(@Param("fullNames") List<String> fullNames);
+            "FROM WalkthroughEntity w WHERE CONCAT(w.owner, '/', w.repo) IN :fullNames " +
+            "AND (w.status <> com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughStatus.DRAFT " +
+            "OR w.userId = :userId) " +
+            "GROUP BY w.owner, w.repo")
+    List<Object[]> countByRepoFullNamesForUser(@Param("fullNames") List<String> fullNames,
+                                               @Param("userId") UUID userId);
 
     @Query("SELECT w.prNumber, COUNT(w) FROM WalkthroughEntity w " +
-            "WHERE w.owner = :owner AND w.repo = :repo AND w.prNumber IN :prNumbers GROUP BY w.prNumber")
-    List<Object[]> countByPrNumbers(@Param("owner") String owner, @Param("repo") String repo,
-                                    @Param("prNumbers") List<Integer> prNumbers);
+            "WHERE w.owner = :owner AND w.repo = :repo AND w.prNumber IN :prNumbers " +
+            "AND (w.status <> com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughStatus.DRAFT " +
+            "OR w.userId = :userId) " +
+            "GROUP BY w.prNumber")
+    List<Object[]> countByPrNumbersForUser(@Param("owner") String owner, @Param("repo") String repo,
+                                           @Param("prNumbers") List<Integer> prNumbers, @Param("userId") UUID userId);
 
     List<WalkthroughEntity> findByOwnerAndRepoAndPrNumberAndStatus(
             String owner, String repo, Integer prNumber, WalkthroughStatus status);
