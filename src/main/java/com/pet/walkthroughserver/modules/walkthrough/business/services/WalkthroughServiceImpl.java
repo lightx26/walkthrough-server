@@ -4,6 +4,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,6 +13,8 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequest;
+import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequestFile;
+import com.pet.walkthroughserver.modules.comment.repository.CommentRepository;
 import com.pet.walkthroughserver.modules.githubpr.business.services.GitHubPrService;
 import com.pet.walkthroughserver.modules.walkthrough.business.events.WalkthroughCreatedEvent;
 import com.pet.walkthroughserver.modules.walkthrough.business.events.WalkthroughDeletedEvent;
@@ -30,7 +34,6 @@ import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughEntit
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughFileEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughRepository;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughSnapshotEntity;
-import com.pet.walkthroughserver.modules.comment.repository.CommentRepository;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughSnapshotRepository;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughStatus;
 
@@ -51,6 +54,11 @@ public class WalkthroughServiceImpl implements WalkthroughService {
     public WalkthroughEntity create(UUID userId, String username, CreateWalkthroughRequest request) {
         GitHubPullRequest pr = verifyPrOwnership(userId, username, request);
 
+        Map<String, GitHubPullRequestFile> prFilesByName = gitHubPrService
+                .getPullRequestFiles(userId, request.getOwner(), request.getRepo(), request.getPrNumber())
+                .stream()
+                .collect(Collectors.toMap(GitHubPullRequestFile::getFilename, Function.identity(), (a, b) -> a));
+
         WalkthroughEntity walkthrough = WalkthroughEntity.builder()
                 .userId(userId)
                 .owner(request.getOwner())
@@ -62,7 +70,7 @@ public class WalkthroughServiceImpl implements WalkthroughService {
                 .commitSha(pr.getHead() != null ? pr.getHead().getSha() : null)
                 .build();
 
-        buildChapters(walkthrough, request.getChapters());
+        buildChapters(walkthrough, request.getChapters(), prFilesByName);
         WalkthroughEntity saved = walkthroughRepository.save(walkthrough);
         publishAfterCommit(new WalkthroughCreatedEvent(saved.getId(), Instant.now()));
         return saved;
@@ -98,11 +106,16 @@ public class WalkthroughServiceImpl implements WalkthroughService {
         WalkthroughEntity walkthrough = findWalkthroughById(walkthroughId);
         verifyOwnership(walkthrough, userId);
 
+        Map<String, GitHubPullRequestFile> prFilesByName = gitHubPrService
+                .getPullRequestFiles(userId, walkthrough.getOwner(), walkthrough.getRepo(), walkthrough.getPrNumber())
+                .stream()
+                .collect(Collectors.toMap(GitHubPullRequestFile::getFilename, Function.identity(), (a, b) -> a));
+
         walkthrough.setTitle(request.getTitle());
         walkthrough.setDescription(request.getDescription());
         walkthrough.setStatus(request.getStatus());
         walkthrough.getChapters().clear();
-        buildChapters(walkthrough, request.getChapters());
+        buildChapters(walkthrough, request.getChapters(), prFilesByName);
 
         WalkthroughEntity saved = walkthroughRepository.save(walkthrough);
         publishAfterCommit(new WalkthroughUpdatedEvent(saved.getId(), Instant.now()));
@@ -220,7 +233,8 @@ public class WalkthroughServiceImpl implements WalkthroughService {
         return pr;
     }
 
-    private void buildChapters(WalkthroughEntity walkthrough, List<ChapterRequest> chapterRequests) {
+    private void buildChapters(WalkthroughEntity walkthrough, List<ChapterRequest> chapterRequests,
+                               Map<String, GitHubPullRequestFile> prFilesByName) {
         for (int i = 0; i < chapterRequests.size(); i++) {
             ChapterRequest cr = chapterRequests.get(i);
             ChapterEntity chapter = ChapterEntity.builder()
@@ -230,20 +244,23 @@ public class WalkthroughServiceImpl implements WalkthroughService {
                     .sortOrder(i)
                     .build();
 
-            buildFiles(chapter, cr.getFiles());
+            buildFiles(chapter, cr.getFiles(), prFilesByName);
             walkthrough.getChapters().add(chapter);
         }
     }
 
-    private void buildFiles(ChapterEntity chapter, List<WalkthroughFileRequest> fileRequests) {
+    private void buildFiles(ChapterEntity chapter, List<WalkthroughFileRequest> fileRequests,
+                            Map<String, GitHubPullRequestFile> prFilesByName) {
         for (int i = 0; i < fileRequests.size(); i++) {
             WalkthroughFileRequest fr = fileRequests.get(i);
+            GitHubPullRequestFile ghFile = prFilesByName.get(fr.getFilename());
+
             WalkthroughFileEntity file = WalkthroughFileEntity.builder()
                     .chapter(chapter)
                     .filename(fr.getFilename())
                     .fileSha(fr.getFileSha())
                     .fileStatus(fr.getFileStatus())
-                    .rawPatch(fr.getRawPatch())
+                    .rawPatch(ghFile != null ? ghFile.getPatch() : fr.getRawPatch())
                     .sortOrder(i)
                     .build();
 
