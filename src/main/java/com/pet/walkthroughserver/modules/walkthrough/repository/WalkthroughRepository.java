@@ -1,6 +1,7 @@
 package com.pet.walkthroughserver.modules.walkthrough.repository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -10,6 +11,9 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface WalkthroughRepository extends JpaRepository<WalkthroughEntity, UUID> {
+
+    @Query("SELECT w FROM WalkthroughEntity w LEFT JOIN FETCH w.user WHERE w.id = :id")
+    Optional<WalkthroughEntity> findByIdWithUser(@Param("id") UUID id);
 
     List<WalkthroughEntity> findByOwnerAndRepoAndPrNumberOrderByCreatedAtDesc(
             String owner, String repo, Integer prNumber);

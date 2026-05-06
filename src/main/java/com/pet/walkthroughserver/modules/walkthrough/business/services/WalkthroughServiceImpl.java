@@ -83,7 +83,7 @@ public class WalkthroughServiceImpl implements WalkthroughService {
 
     @Override
     public WalkthroughEntity getById(UUID id, UUID requestingUserId) {
-        WalkthroughEntity walkthrough = walkthroughRepository.findById(id)
+        WalkthroughEntity walkthrough = walkthroughRepository.findByIdWithUser(id)
                 .orElseThrow(() -> new WalkthroughNotFoundException("Walkthrough not found"));
         boolean isOwner = walkthrough.getUserId().equals(requestingUserId);
         if (!isOwner && walkthrough.getStatus() != WalkthroughStatus.PUBLISHED) {

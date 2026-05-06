@@ -1,11 +1,15 @@
 package com.pet.walkthroughserver.modules.walkthrough.repository;
 
 import com.pet.walkthroughserver.modules._shared.entity.BaseEntity;
+import com.pet.walkthroughserver.modules.user.repository.UserEntity;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
@@ -27,6 +31,10 @@ public class WalkthroughEntity extends BaseEntity {
 
     @Column(name = "user_id", nullable = false)
     private UUID userId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", insertable = false, updatable = false)
+    private UserEntity user;
 
     @Column(name = "owner", nullable = false)
     private String owner;

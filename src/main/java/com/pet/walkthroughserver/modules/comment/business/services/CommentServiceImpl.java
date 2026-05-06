@@ -5,6 +5,8 @@ import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.pet.walkthroughserver.modules.comment.business.events.CommentCreatedEvent;
 import com.pet.walkthroughserver.modules.comment.business.events.CommentEventProducer;
@@ -44,14 +46,21 @@ public class CommentServiceImpl implements CommentService {
 
         CommentEntity saved = commentRepository.save(comment);
 
-        commentEventProducer.publish(CommentCreatedEvent.builder()
+        CommentCreatedEvent event = CommentCreatedEvent.builder()
                 .commentId(saved.getId())
                 .walkthroughId(walkthroughId)
                 .userId(userId)
                 .content(request.getContent())
                 .walkthroughFileId(request.getWalkthroughFileId())
                 .diffPosition(request.getDiffPosition())
-                .build());
+                .build();
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                commentEventProducer.publish(event);
+            }
+        });
 
         return saved;
     }

@@ -18,6 +18,9 @@ import java.util.List;
 @Mapper(componentModel = MappingConstants.ComponentModel.SPRING)
 public interface WalkthroughPresentationMapper {
 
+    @Mapping(target = "creatorUsername", source = "user.username")
+    @Mapping(target = "creatorDisplayName", source = "user.displayName")
+    @Mapping(target = "creatorAvatarUrl", source = "user.avatarUrl")
     WalkthroughResponse toResponse(WalkthroughEntity entity);
 
     @Mapping(target = "chapterCount", expression = "java(entity.getChapters() != null ? entity.getChapters().size() : 0)")

@@ -14,5 +14,6 @@ public class WalkthroughFileResponse {
     private String fileSha;
     private String fileStatus;
     private Integer sortOrder;
+    private String rawPatch;
     private List<AnnotationResponse> annotations;
 }

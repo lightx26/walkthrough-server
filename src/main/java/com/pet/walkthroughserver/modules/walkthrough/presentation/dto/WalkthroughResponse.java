@@ -14,6 +14,9 @@ import lombok.Getter;
 public class WalkthroughResponse {
     private UUID id;
     private UUID userId;
+    private String creatorUsername;
+    private String creatorDisplayName;
+    private String creatorAvatarUrl;
     private String title;
     private String description;
     private WalkthroughStatus status;
