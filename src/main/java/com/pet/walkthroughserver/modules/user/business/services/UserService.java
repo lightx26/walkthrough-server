@@ -3,6 +3,7 @@ package com.pet.walkthroughserver.modules.user.business.services;
 import com.pet.walkthroughserver.modules.user.business.models.GitHubUserData;
 import com.pet.walkthroughserver.modules.user.repository.UserEntity;
 
+import java.util.List;
 import java.util.UUID;
 
 public interface UserService {
@@ -18,4 +19,6 @@ public interface UserService {
     UserEntity findOrCreateByGitHub(GitHubUserData githubUserData);
 
     UserEntity getCurrentUser(UUID userId);
+
+    List<UserEntity> searchUsers(String query);
 }

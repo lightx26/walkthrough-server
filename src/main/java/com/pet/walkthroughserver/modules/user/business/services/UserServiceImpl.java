@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -50,5 +51,11 @@ public class UserServiceImpl implements UserService {
     @Override
     public UserEntity getCurrentUser(UUID userId) {
         return findById(userId);
+    }
+
+    @Override
+    public List<UserEntity> searchUsers(String query) {
+        return userRepository.findTop10ByUsernameContainingIgnoreCaseOrDisplayNameContainingIgnoreCase(
+                query, query);
     }
 }
