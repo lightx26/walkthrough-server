@@ -5,10 +5,17 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import jakarta.persistence.LockModeType;
+
 public interface ReadProgressRepository extends JpaRepository<ReadProgressEntity, UUID> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT rp FROM ReadProgressEntity rp WHERE rp.userId = :userId AND rp.walkthroughId = :walkthroughId")
+    Optional<ReadProgressEntity> findByUserIdAndWalkthroughIdForUpdate(@Param("userId") UUID userId, @Param("walkthroughId") UUID walkthroughId);
 
     Optional<ReadProgressEntity> findByUserIdAndWalkthroughId(UUID userId, UUID walkthroughId);
 

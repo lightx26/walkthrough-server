@@ -53,7 +53,7 @@ public class ReadProgressServiceImpl implements ReadProgressService {
 
         // Upsert read_progress
         ReadProgressEntity progress = readProgressRepository
-                .findByUserIdAndWalkthroughId(userId, walkthroughId)
+                .findByUserIdAndWalkthroughIdForUpdate(userId, walkthroughId)
                 .orElse(ReadProgressEntity.builder()
                         .userId(userId)
                         .walkthroughId(walkthroughId)
