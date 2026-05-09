@@ -3,11 +3,6 @@ package com.pet.walkthroughserver.configs;
 import java.time.Duration;
 import java.util.Map;
 
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
@@ -18,6 +13,12 @@ import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
+
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 @Configuration
 @EnableCaching
@@ -72,9 +73,9 @@ public class CacheConfig {
                 // Profile
                 Map.entry(CacheNames.PROFILE_STATS, defaultConfig.entryTtl(Duration.ofMinutes(5))),
 
-                // Starred repos
-                Map.entry(CacheNames.STARRED_LIST, defaultConfig.entryTtl(Duration.ofMinutes(10))),
-                Map.entry(CacheNames.STARRED_CHECK, defaultConfig.entryTtl(Duration.ofMinutes(10))),
+                // Pinned repos
+                Map.entry(CacheNames.PINNED_LIST, defaultConfig.entryTtl(Duration.ofMinutes(10))),
+                Map.entry(CacheNames.PINNED_CHECK, defaultConfig.entryTtl(Duration.ofMinutes(10))),
 
                 // User
                 Map.entry(CacheNames.USER_SEARCH, defaultConfig.entryTtl(Duration.ofMinutes(5)))

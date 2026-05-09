@@ -28,9 +28,9 @@ public final class CacheNames {
     // Profile caches
     public static final String PROFILE_STATS = "profile:stats";
 
-    // Starred repos caches
-    public static final String STARRED_LIST = "starred:list";
-    public static final String STARRED_CHECK = "starred:check";
+    // Pinned repos caches
+    public static final String PINNED_LIST = "pinned:list";
+    public static final String PINNED_CHECK = "pinned:check";
 
     // User caches
     public static final String USER_SEARCH = "user:search";

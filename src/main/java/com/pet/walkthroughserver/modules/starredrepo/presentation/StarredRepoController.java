@@ -26,7 +26,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/v1/starred-repos")
+@RequestMapping("/v1/pinned-repos")
 @RequiredArgsConstructor
 public class StarredRepoController {
 
@@ -64,7 +64,7 @@ public class StarredRepoController {
         UUID userId = UUID.fromString(authUser.getUserId());
         String repoFullName = owner + "/" + repo;
         starredRepoService.unstarRepo(userId, repoFullName);
-        return ResponseEntity.ok(DataResponse.of(null, "Repository unstarred"));
+        return ResponseEntity.ok(DataResponse.of(null, "Repository unpinned"));
     }
 
     @GetMapping("/check/{owner}/{repo}")

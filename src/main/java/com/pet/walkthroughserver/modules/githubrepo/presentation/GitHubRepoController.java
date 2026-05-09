@@ -40,10 +40,15 @@ public class GitHubRepoController {
             @RequestParam(required = false) String q,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int perPage,
-            @RequestParam(defaultValue = "updated") String sort) {
+            @RequestParam(defaultValue = "updated") String sort,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) String language) {
         UUID userId = UUID.fromString(authUser.getUserId());
-        PageData<GitHubRepository> pageData = (q != null && !q.isBlank())
-                ? gitHubRepoService.searchRepositories(userId, q, page, perPage)
+
+        String searchQuery = buildSearchQuery(q, type, language);
+
+        PageData<GitHubRepository> pageData = (searchQuery != null)
+                ? gitHubRepoService.searchRepositories(userId, searchQuery, page, perPage)
                 : gitHubRepoService.getUserRepositories(userId, page, perPage, sort);
         List<String> fullNames = pageData.getItems().stream()
                 .map(GitHubRepository::getFullName)
@@ -72,5 +77,26 @@ public class GitHubRepoController {
                 .walkthroughsCount(walkthroughsCount)
                 .build();
         return ResponseEntity.ok(DataResponse.of(response));
+    }
+
+    private String buildSearchQuery(String q, String type, String language) {
+        boolean hasQuery = q != null && !q.isBlank();
+        boolean hasFilters = type != null || language != null;
+
+        if (!hasQuery && !hasFilters) {
+            return null;
+        }
+
+        StringBuilder sb = new StringBuilder();
+        if (hasQuery) {
+            sb.append(q);
+        }
+        if (type != null) {
+            sb.append(" is:").append(type);
+        }
+        if (language != null) {
+            sb.append(" language:").append(language);
+        }
+        return sb.toString().trim();
     }
 }

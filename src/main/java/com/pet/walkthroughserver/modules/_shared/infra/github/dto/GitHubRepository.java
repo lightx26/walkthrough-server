@@ -1,6 +1,7 @@
 package com.pet.walkthroughserver.modules._shared.infra.github.dto;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
+
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -49,5 +50,6 @@ public class GitHubRepository {
         private String login;
         @JsonAlias("avatar_url")
         private String avatarUrl;
+        private String type;
     }
 }

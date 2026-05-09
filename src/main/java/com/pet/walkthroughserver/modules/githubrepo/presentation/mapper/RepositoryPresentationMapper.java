@@ -23,6 +23,7 @@ public interface RepositoryPresentationMapper {
                 .id(owner.getId())
                 .login(owner.getLogin())
                 .avatarUrl(owner.getAvatarUrl())
+                .type(owner.getType())
                 .build();
     }
 }

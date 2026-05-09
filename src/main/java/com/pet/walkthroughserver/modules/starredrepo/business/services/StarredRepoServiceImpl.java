@@ -24,8 +24,8 @@ public class StarredRepoServiceImpl implements StarredRepoService {
     @Override
     @Transactional
     @Caching(evict = {
-            @CacheEvict(value = CacheNames.STARRED_LIST, key = "#userId"),
-            @CacheEvict(value = CacheNames.STARRED_CHECK, key = "#userId + ':' + #repoFullName")
+            @CacheEvict(value = CacheNames.PINNED_LIST, key = "#userId"),
+            @CacheEvict(value = CacheNames.PINNED_CHECK, key = "#userId + ':' + #repoFullName")
     })
     public StarredRepoEntity starRepo(UUID userId, String repoFullName, String repoName, String language) {
         return starredRepoRepository.findByUserIdAndRepoFullName(userId, repoFullName)
@@ -43,8 +43,8 @@ public class StarredRepoServiceImpl implements StarredRepoService {
     @Override
     @Transactional
     @Caching(evict = {
-            @CacheEvict(value = CacheNames.STARRED_LIST, key = "#userId"),
-            @CacheEvict(value = CacheNames.STARRED_CHECK, key = "#userId + ':' + #repoFullName")
+            @CacheEvict(value = CacheNames.PINNED_LIST, key = "#userId"),
+            @CacheEvict(value = CacheNames.PINNED_CHECK, key = "#userId + ':' + #repoFullName")
     })
     public void unstarRepo(UUID userId, String repoFullName) {
         starredRepoRepository.deleteByUserIdAndRepoFullName(userId, repoFullName);
@@ -52,14 +52,14 @@ public class StarredRepoServiceImpl implements StarredRepoService {
 
     @Override
     @Transactional(readOnly = true)
-    @Cacheable(value = CacheNames.STARRED_LIST, key = "#userId")
+    @Cacheable(value = CacheNames.PINNED_LIST, key = "#userId")
     public List<StarredRepoEntity> getStarredRepos(UUID userId) {
         return starredRepoRepository.findByUserIdOrderByCreatedAtDesc(userId);
     }
 
     @Override
     @Transactional(readOnly = true)
-    @Cacheable(value = CacheNames.STARRED_CHECK, key = "#userId + ':' + #repoFullName")
+    @Cacheable(value = CacheNames.PINNED_CHECK, key = "#userId + ':' + #repoFullName")
     public boolean isStarred(UUID userId, String repoFullName) {
         return starredRepoRepository.existsByUserIdAndRepoFullName(userId, repoFullName);
     }
