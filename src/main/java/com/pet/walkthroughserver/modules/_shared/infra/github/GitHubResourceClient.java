@@ -5,6 +5,7 @@ import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPagedRes
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequest;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequestFile;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubRepository;
+import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubSearchPrsResponse;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubSearchReposResponse;
 
 import java.util.List;
@@ -37,4 +38,6 @@ public interface GitHubResourceClient {
                                   String body, String commitId, String path, int position);
 
     List<GitHubPullRequest> searchUserPullRequests(String accessToken, String username, int perPage);
+
+    GitHubSearchPrsResponse searchPullRequests(String accessToken, String query, String username, int perPage);
 }

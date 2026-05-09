@@ -113,6 +113,20 @@ public class GitHubPrController {
         return ResponseEntity.ok(DataResponse.of(ListData.of(fileChangeMapper.toResponseList(files))));
     }
 
+    @GetMapping("/pulls/search")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<DataResponse<ListData<RecentPullRequestResponse>>> searchPullRequests(
+            @AuthenticationPrincipal AuthUser authUser,
+            @RequestParam String q,
+            @RequestParam(defaultValue = "10") int perPage) {
+        UUID userId = UUID.fromString(authUser.getUserId());
+        List<RecentPullRequestResponse> responses = gitHubPrService.searchPullRequests(userId, q, perPage)
+                .stream()
+                .map(this::toRecentPrResponse)
+                .toList();
+        return ResponseEntity.ok(DataResponse.of(ListData.of(responses)));
+    }
+
     @GetMapping("/pulls/recent")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<DataResponse<ListData<RecentPullRequestResponse>>> getRecentPullRequests(

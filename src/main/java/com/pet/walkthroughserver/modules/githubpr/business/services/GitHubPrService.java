@@ -20,4 +20,6 @@ public interface GitHubPrService {
     List<GitHubPullRequestFile> getCommitFiles(UUID userId, String owner, String repo, String commitSha);
 
     List<GitHubPullRequest> getRecentPullRequests(UUID userId, int perPage);
+
+    List<GitHubPullRequest> searchPullRequests(UUID userId, String query, int perPage);
 }

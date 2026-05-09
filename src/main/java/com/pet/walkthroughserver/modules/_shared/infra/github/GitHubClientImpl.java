@@ -16,6 +16,7 @@ import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPagedRes
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequest;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequestFile;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubRepository;
+import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubSearchPrsResponse;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubSearchReposResponse;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubUserInfo;
 import com.pet.walkthroughserver.modules._shared.infra.github.exceptions.GitHubApiException;
@@ -290,6 +291,25 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
 
         log.info("GitHub API [GET /search/issues] — success, username={}, count={}", username, response.items().size());
         return response.items();
+    }
+
+    @Override
+    public GitHubSearchPrsResponse searchPullRequests(String accessToken, String query, String username, int perPage) {
+        String scopedQuery = query + " type:pr author:" + username;
+        GitHubSearchPrsResponse response = restClient.get()
+                .uri(GITHUB_API_URL + "/search/issues?q={query}&per_page={perPage}&sort=updated",
+                        scopedQuery, perPage)
+                .header("Authorization", "Bearer " + accessToken)
+                .accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .body(GitHubSearchPrsResponse.class);
+
+        if (response == null || response.getItems() == null) {
+            throw new GitHubApiException("Failed to search pull requests on GitHub");
+        }
+
+        log.info("GitHub API [GET /search/issues] — success, query={}, count={}", query, response.getItems().size());
+        return response;
     }
 
     @Override
