@@ -1,10 +1,12 @@
 package com.pet.walkthroughserver.modules.user.business.services;
 
+import com.pet.walkthroughserver.configs.CacheNames;
 import com.pet.walkthroughserver.modules.user.exceptions.UserNotFoundException;
 import com.pet.walkthroughserver.modules.user.business.models.GitHubUserData;
 import com.pet.walkthroughserver.modules.user.repository.UserEntity;
 import com.pet.walkthroughserver.modules.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -54,6 +56,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Cacheable(value = CacheNames.USER_SEARCH, key = "#query")
     public List<UserEntity> searchUsers(String query) {
         return userRepository.findTop10ByUsernameContainingIgnoreCaseOrDisplayNameContainingIgnoreCase(
                 query, query);

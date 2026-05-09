@@ -1,5 +1,6 @@
 package com.pet.walkthroughserver.modules.githubrepo.business.services;
 
+import com.pet.walkthroughserver.configs.CacheNames;
 import com.pet.walkthroughserver.modules._shared.dto.PageData;
 import com.pet.walkthroughserver.modules._shared.infra.github.GitHubResourceClient;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubRepository;
@@ -7,6 +8,7 @@ import com.pet.walkthroughserver.modules._shared.infra.github.exceptions.GitHubA
 import com.pet.walkthroughserver.modules.user.business.services.UserService;
 import com.pet.walkthroughserver.modules.user.repository.UserEntity;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -20,6 +22,7 @@ public class GitHubRepoServiceImpl implements GitHubRepoService {
     private final UserService userService;
 
     @Override
+    @Cacheable(value = CacheNames.GITHUB_REPOS, key = "#userId + ':' + #page + ':' + #perPage + ':' + #sort")
     public PageData<GitHubRepository> getUserRepositories(UUID userId, int page, int perPage, String sort) {
         String accessToken = getGitHubAccessToken(userId);
         var result = gitHubResourceClient.fetchUserRepositories(accessToken, page, perPage, sort);
@@ -27,6 +30,7 @@ public class GitHubRepoServiceImpl implements GitHubRepoService {
     }
 
     @Override
+    @Cacheable(value = CacheNames.GITHUB_REPO_SEARCH, key = "#userId + ':' + #query + ':' + #page + ':' + #perPage")
     public PageData<GitHubRepository> searchRepositories(UUID userId, String query, int page, int perPage) {
         UserEntity user = userService.findById(userId);
         String accessToken = getAccessTokenFromUser(user);
@@ -37,6 +41,7 @@ public class GitHubRepoServiceImpl implements GitHubRepoService {
     }
 
     @Override
+    @Cacheable(value = CacheNames.GITHUB_REPO, key = "#userId + ':' + #owner + ':' + #repo")
     public GitHubRepository getRepository(UUID userId, String owner, String repo) {
         String accessToken = getGitHubAccessToken(userId);
         return gitHubResourceClient.fetchRepository(accessToken, owner, repo);

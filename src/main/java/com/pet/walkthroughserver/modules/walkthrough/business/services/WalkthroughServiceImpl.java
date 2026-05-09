@@ -7,10 +7,15 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
+import com.pet.walkthroughserver.configs.CacheNames;
 
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequest;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequestFile;
@@ -51,6 +56,14 @@ public class WalkthroughServiceImpl implements WalkthroughService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = CacheNames.WALKTHROUGH_RECENT, key = "#userId"),
+            @CacheEvict(value = CacheNames.WALKTHROUGH_COUNT_REPO, allEntries = true),
+            @CacheEvict(value = CacheNames.WALKTHROUGH_COUNT_REPOS, allEntries = true),
+            @CacheEvict(value = CacheNames.WALKTHROUGH_COUNT_PR, allEntries = true),
+            @CacheEvict(value = CacheNames.WALKTHROUGH_COUNT_PRS, allEntries = true),
+            @CacheEvict(value = CacheNames.PROFILE_STATS, allEntries = true)
+    })
     public WalkthroughEntity create(UUID userId, String username, CreateWalkthroughRequest request) {
         GitHubPullRequest pr = verifyPrOwnership(userId, username, request);
 
@@ -85,11 +98,13 @@ public class WalkthroughServiceImpl implements WalkthroughService {
     }
 
     @Override
+    @Cacheable(value = CacheNames.WALKTHROUGH_RECENT, key = "#userId")
     public List<WalkthroughEntity> listRecent(UUID userId) {
         return walkthroughRepository.findTop10ByUserIdOrderByUpdatedAtDesc(userId);
     }
 
     @Override
+    @Cacheable(value = CacheNames.WALKTHROUGH_DETAIL, key = "#id")
     public WalkthroughEntity getById(UUID id, UUID requestingUserId) {
         WalkthroughEntity walkthrough = walkthroughRepository.findByIdWithUser(id)
                 .orElseThrow(() -> new WalkthroughNotFoundException("Walkthrough not found"));
@@ -102,6 +117,16 @@ public class WalkthroughServiceImpl implements WalkthroughService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = CacheNames.WALKTHROUGH_DETAIL, key = "#walkthroughId"),
+            @CacheEvict(value = CacheNames.WALKTHROUGH_RECENT, key = "#userId"),
+            @CacheEvict(value = CacheNames.WALKTHROUGH_COUNT_REPO, allEntries = true),
+            @CacheEvict(value = CacheNames.WALKTHROUGH_COUNT_REPOS, allEntries = true),
+            @CacheEvict(value = CacheNames.WALKTHROUGH_COUNT_PR, allEntries = true),
+            @CacheEvict(value = CacheNames.WALKTHROUGH_COUNT_PRS, allEntries = true),
+            @CacheEvict(value = CacheNames.WALKTHROUGH_COMMENT_COUNTS, allEntries = true),
+            @CacheEvict(value = CacheNames.PROFILE_STATS, allEntries = true)
+    })
     public WalkthroughEntity update(UUID userId, UUID walkthroughId, UpdateWalkthroughRequest request) {
         WalkthroughEntity walkthrough = findWalkthroughById(walkthroughId);
         verifyOwnership(walkthrough, userId);
@@ -131,6 +156,16 @@ public class WalkthroughServiceImpl implements WalkthroughService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = CacheNames.WALKTHROUGH_DETAIL, key = "#walkthroughId"),
+            @CacheEvict(value = CacheNames.WALKTHROUGH_RECENT, key = "#userId"),
+            @CacheEvict(value = CacheNames.WALKTHROUGH_COUNT_REPO, allEntries = true),
+            @CacheEvict(value = CacheNames.WALKTHROUGH_COUNT_REPOS, allEntries = true),
+            @CacheEvict(value = CacheNames.WALKTHROUGH_COUNT_PR, allEntries = true),
+            @CacheEvict(value = CacheNames.WALKTHROUGH_COUNT_PRS, allEntries = true),
+            @CacheEvict(value = CacheNames.WALKTHROUGH_COMMENT_COUNTS, allEntries = true),
+            @CacheEvict(value = CacheNames.PROFILE_STATS, allEntries = true)
+    })
     public void delete(UUID userId, UUID walkthroughId) {
         WalkthroughEntity walkthrough = findWalkthroughById(walkthroughId);
         verifyOwnership(walkthrough, userId);
@@ -139,16 +174,19 @@ public class WalkthroughServiceImpl implements WalkthroughService {
     }
 
     @Override
+    @Cacheable(value = CacheNames.WALKTHROUGH_COUNT_REPO, key = "#owner + ':' + #repo + ':' + #requestingUserId")
     public long countByRepo(String owner, String repo, UUID requestingUserId) {
         return walkthroughRepository.countByOwnerAndRepoForUser(owner, repo, requestingUserId);
     }
 
     @Override
+    @Cacheable(value = CacheNames.WALKTHROUGH_COUNT_PR, key = "#owner + ':' + #repo + ':' + #prNumber + ':' + #requestingUserId")
     public long countByPr(String owner, String repo, int prNumber, UUID requestingUserId) {
         return walkthroughRepository.countByOwnerAndRepoAndPrNumberForUser(owner, repo, prNumber, requestingUserId);
     }
 
     @Override
+    @Cacheable(value = CacheNames.WALKTHROUGH_COUNT_REPOS, key = "#repoFullNames.hashCode() + ':' + #requestingUserId")
     public Map<String, Long> countByRepos(List<String> repoFullNames, UUID requestingUserId) {
         if (repoFullNames.isEmpty()) return Map.of();
         return walkthroughRepository.countByRepoFullNamesForUser(repoFullNames, requestingUserId).stream()
@@ -159,6 +197,7 @@ public class WalkthroughServiceImpl implements WalkthroughService {
     }
 
     @Override
+    @Cacheable(value = CacheNames.WALKTHROUGH_COUNT_PRS, key = "#owner + ':' + #repo + ':' + #prNumbers.hashCode() + ':' + #requestingUserId")
     public Map<Integer, Long> countByPrs(String owner, String repo, List<Integer> prNumbers, UUID requestingUserId) {
         if (prNumbers.isEmpty()) return Map.of();
         return walkthroughRepository.countByPrNumbersForUser(owner, repo, prNumbers, requestingUserId).stream()
@@ -169,6 +208,7 @@ public class WalkthroughServiceImpl implements WalkthroughService {
     }
 
     @Override
+    @Cacheable(value = CacheNames.WALKTHROUGH_COMMENT_COUNTS, key = "#walkthroughIds.hashCode()")
     public Map<UUID, Long> getCommentCounts(List<UUID> walkthroughIds) {
         if (walkthroughIds.isEmpty()) return Map.of();
         return commentRepository.countGroupedByWalkthroughIds(walkthroughIds).stream()

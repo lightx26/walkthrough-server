@@ -1,5 +1,6 @@
 package com.pet.walkthroughserver.modules.profile.business.services;
 
+import com.pet.walkthroughserver.configs.CacheNames;
 import com.pet.walkthroughserver.modules.profile.presentation.dto.ProfileResponse;
 import com.pet.walkthroughserver.modules.profile.presentation.dto.ProfileStatsResponse;
 import com.pet.walkthroughserver.modules.profile.repository.WalkthroughPinRepository;
@@ -9,6 +10,7 @@ import com.pet.walkthroughserver.modules.user.repository.UserRepository;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughRepository;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughStatus;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.UUID;
@@ -36,6 +38,7 @@ public class ProfileServiceImpl implements ProfileService {
     }
 
     @Override
+    @Cacheable(value = CacheNames.PROFILE_STATS, key = "#username")
     public ProfileStatsResponse getStats(String username, UUID viewerId) {
         UserEntity user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));

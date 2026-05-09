@@ -4,8 +4,12 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import com.pet.walkthroughserver.configs.CacheNames;
 
 import com.pet.walkthroughserver.modules.walkthrough.exceptions.WalkthroughNotFoundException;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.RecordChapterViewRequest;
@@ -28,6 +32,7 @@ public class ReadProgressServiceImpl implements ReadProgressService {
 
     @Override
     @Transactional
+    @CacheEvict(value = CacheNames.WALKTHROUGH_PROGRESS, key = "#userId + ':' + #walkthroughId")
     public ChapterViewEventEntity recordChapterView(UUID userId, UUID walkthroughId, RecordChapterViewRequest request) {
         WalkthroughEntity walkthrough = walkthroughRepository.findById(walkthroughId)
                 .orElseThrow(() -> new WalkthroughNotFoundException("Walkthrough not found"));
@@ -84,6 +89,7 @@ public class ReadProgressServiceImpl implements ReadProgressService {
     }
 
     @Override
+    @Cacheable(value = CacheNames.WALKTHROUGH_PROGRESS, key = "#userId + ':' + #walkthroughId")
     public ReadProgressEntity getReadProgress(UUID userId, UUID walkthroughId) {
         return readProgressRepository
                 .findByUserIdAndWalkthroughId(userId, walkthroughId)
