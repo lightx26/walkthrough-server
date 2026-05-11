@@ -2,6 +2,7 @@ package com.pet.walkthroughserver.modules.githubrepo.presentation;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.http.ResponseEntity;
@@ -19,6 +20,7 @@ import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubReposito
 import com.pet.walkthroughserver.modules.githubrepo.business.services.GitHubRepoService;
 import com.pet.walkthroughserver.modules.githubrepo.presentation.dto.RepositoryResponse;
 import com.pet.walkthroughserver.modules.githubrepo.presentation.mapper.RepositoryPresentationMapper;
+import com.pet.walkthroughserver.modules.pinnedRepo.business.services.PinnedRepoService;
 import com.pet.walkthroughserver.modules.walkthrough.business.services.WalkthroughService;
 import com.pet.walkthroughserver.security.AuthUser;
 
@@ -32,6 +34,7 @@ public class GitHubRepoController {
     private final GitHubRepoService gitHubRepoService;
     private final RepositoryPresentationMapper repositoryMapper;
     private final WalkthroughService walkthroughService;
+    private final PinnedRepoService pinnedRepoService;
 
     @GetMapping("/repos")
     @PreAuthorize("isAuthenticated()")
@@ -54,9 +57,11 @@ public class GitHubRepoController {
                 .map(GitHubRepository::getFullName)
                 .toList();
         Map<String, Long> countMap = walkthroughService.countByRepos(fullNames, userId);
+        Set<String> pinnedNames = pinnedRepoService.findPinnedFullNames(userId, fullNames);
         List<RepositoryResponse> responses = pageData.getItems().stream()
                 .map(repo -> repositoryMapper.toResponse(repo).toBuilder()
                         .walkthroughsCount(countMap.getOrDefault(repo.getFullName(), 0L))
+                        .isPinned(pinnedNames.contains(repo.getFullName()))
                         .build())
                 .toList();
         return ResponseEntity.ok(DataResponse.of(
@@ -73,8 +78,10 @@ public class GitHubRepoController {
         UUID userId = UUID.fromString(authUser.getUserId());
         GitHubRepository repository = gitHubRepoService.getRepository(userId, owner, repo);
         long walkthroughsCount = walkthroughService.countByRepo(owner, repo, userId);
+        boolean isPinned = pinnedRepoService.isPinned(userId, owner + "/" + repo);
         RepositoryResponse response = repositoryMapper.toResponse(repository).toBuilder()
                 .walkthroughsCount(walkthroughsCount)
+                .isPinned(isPinned)
                 .build();
         return ResponseEntity.ok(DataResponse.of(response));
     }

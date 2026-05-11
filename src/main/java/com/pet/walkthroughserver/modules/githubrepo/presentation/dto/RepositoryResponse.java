@@ -24,6 +24,7 @@ public class RepositoryResponse {
     private int openIssuesCount;
     private int openPrsCount;
     private long walkthroughsCount;
+    private boolean isPinned;
     private String updatedAt;
     private Owner owner;
 
