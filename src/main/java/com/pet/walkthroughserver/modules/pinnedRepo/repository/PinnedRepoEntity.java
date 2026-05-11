@@ -1,4 +1,4 @@
-package com.pet.walkthroughserver.modules.starredrepo.repository;
+package com.pet.walkthroughserver.modules.pinnedRepo.repository;
 
 import com.pet.walkthroughserver.modules._shared.entity.BaseEntity;
 
@@ -18,7 +18,7 @@ import lombok.experimental.SuperBuilder;
 @SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
-public class StarredRepoEntity extends BaseEntity {
+public class PinnedRepoEntity extends BaseEntity {
 
     @Column(name = "user_id", nullable = false)
     private java.util.UUID userId;

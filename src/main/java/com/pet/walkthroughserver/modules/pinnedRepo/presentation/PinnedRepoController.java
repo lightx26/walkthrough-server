@@ -1,4 +1,4 @@
-package com.pet.walkthroughserver.modules.starredrepo.presentation;
+package com.pet.walkthroughserver.modules.pinnedRepo.presentation;
 
 import java.util.List;
 import java.util.UUID;
@@ -16,10 +16,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.pet.walkthroughserver.interceptors.DataResponse;
 import com.pet.walkthroughserver.modules._shared.dto.ListData;
-import com.pet.walkthroughserver.modules.starredrepo.business.services.StarredRepoService;
-import com.pet.walkthroughserver.modules.starredrepo.presentation.dto.StarRepoRequest;
-import com.pet.walkthroughserver.modules.starredrepo.presentation.dto.StarredRepoResponse;
-import com.pet.walkthroughserver.modules.starredrepo.repository.StarredRepoEntity;
+import com.pet.walkthroughserver.modules.pinnedRepo.business.services.PinnedRepoService;
+import com.pet.walkthroughserver.modules.pinnedRepo.presentation.dto.PinnedRepoRequest;
+import com.pet.walkthroughserver.modules.pinnedRepo.presentation.dto.PinnedRepoResponse;
+import com.pet.walkthroughserver.modules.pinnedRepo.repository.PinnedRepoEntity;
 import com.pet.walkthroughserver.security.AuthUser;
 
 import jakarta.validation.Valid;
@@ -28,17 +28,17 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/v1/pinned-repos")
 @RequiredArgsConstructor
-public class StarredRepoController {
+public class PinnedRepoController {
 
-    private final StarredRepoService starredRepoService;
+    private final PinnedRepoService pinnedRepoService;
 
     @GetMapping
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<DataResponse<ListData<StarredRepoResponse>>> getStarredRepos(
+    public ResponseEntity<DataResponse<ListData<PinnedRepoResponse>>> getPinnedRepos(
             @AuthenticationPrincipal AuthUser authUser) {
         UUID userId = UUID.fromString(authUser.getUserId());
-        List<StarredRepoEntity> entities = starredRepoService.getStarredRepos(userId);
-        List<StarredRepoResponse> responses = entities.stream()
+        List<PinnedRepoEntity> entities = pinnedRepoService.getPinnedRepos(userId);
+        List<PinnedRepoResponse> responses = entities.stream()
                 .map(this::toResponse)
                 .toList();
         return ResponseEntity.ok(DataResponse.of(ListData.of(responses)));
@@ -46,41 +46,41 @@ public class StarredRepoController {
 
     @PostMapping
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<DataResponse<StarredRepoResponse>> starRepo(
+    public ResponseEntity<DataResponse<PinnedRepoResponse>> pinRepo(
             @AuthenticationPrincipal AuthUser authUser,
-            @Valid @RequestBody StarRepoRequest request) {
+            @Valid @RequestBody PinnedRepoRequest request) {
         UUID userId = UUID.fromString(authUser.getUserId());
-        StarredRepoEntity entity = starredRepoService.starRepo(
+        PinnedRepoEntity entity = pinnedRepoService.pinRepo(
                 userId, request.getRepoFullName(), request.getRepoName(), request.getLanguage());
         return ResponseEntity.ok(DataResponse.of(toResponse(entity)));
     }
 
     @DeleteMapping("/{owner}/{repo}")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<DataResponse<Void>> unstarRepo(
+    public ResponseEntity<DataResponse<Void>> unpinRepo(
             @AuthenticationPrincipal AuthUser authUser,
             @PathVariable String owner,
             @PathVariable String repo) {
         UUID userId = UUID.fromString(authUser.getUserId());
         String repoFullName = owner + "/" + repo;
-        starredRepoService.unstarRepo(userId, repoFullName);
+        pinnedRepoService.unpinRepo(userId, repoFullName);
         return ResponseEntity.ok(DataResponse.of(null, "Repository unpinned"));
     }
 
     @GetMapping("/check/{owner}/{repo}")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<DataResponse<Boolean>> isStarred(
+    public ResponseEntity<DataResponse<Boolean>> isPinned(
             @AuthenticationPrincipal AuthUser authUser,
             @PathVariable String owner,
             @PathVariable String repo) {
         UUID userId = UUID.fromString(authUser.getUserId());
         String repoFullName = owner + "/" + repo;
-        boolean starred = starredRepoService.isStarred(userId, repoFullName);
-        return ResponseEntity.ok(DataResponse.of(starred));
+        boolean pinned = pinnedRepoService.isPinned(userId, repoFullName);
+        return ResponseEntity.ok(DataResponse.of(pinned));
     }
 
-    private StarredRepoResponse toResponse(StarredRepoEntity entity) {
-        return StarredRepoResponse.builder()
+    private PinnedRepoResponse toResponse(PinnedRepoEntity entity) {
+        return PinnedRepoResponse.builder()
                 .id(entity.getId())
                 .repoFullName(entity.getRepoFullName())
                 .repoName(entity.getRepoName())

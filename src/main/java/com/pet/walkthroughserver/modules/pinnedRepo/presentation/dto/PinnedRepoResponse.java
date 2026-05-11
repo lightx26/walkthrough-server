@@ -1,4 +1,4 @@
-package com.pet.walkthroughserver.modules.starredrepo.presentation.dto;
+package com.pet.walkthroughserver.modules.pinnedRepo.presentation.dto;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -8,7 +8,7 @@ import lombok.Getter;
 
 @Getter
 @Builder
-public class StarredRepoResponse {
+public class PinnedRepoResponse {
 
     private UUID id;
     private String repoFullName;

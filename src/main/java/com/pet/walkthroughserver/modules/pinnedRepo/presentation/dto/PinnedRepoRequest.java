@@ -1,4 +1,4 @@
-package com.pet.walkthroughserver.modules.starredrepo.presentation.dto;
+package com.pet.walkthroughserver.modules.pinnedRepo.presentation.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
@@ -8,7 +8,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-public class StarRepoRequest {
+public class PinnedRepoRequest {
 
     @NotBlank(message = "repoFullName is required")
     private String repoFullName;
