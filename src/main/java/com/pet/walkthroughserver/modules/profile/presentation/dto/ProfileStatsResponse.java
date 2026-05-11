@@ -12,4 +12,5 @@ public class ProfileStatsResponse {
     private long views;
     private long comments;
     private long pins;
+    private long reviews;
 }

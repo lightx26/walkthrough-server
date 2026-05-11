@@ -10,6 +10,7 @@ import com.pet.walkthroughserver.modules.profile.presentation.dto.ActivityEntryR
 import com.pet.walkthroughserver.modules.profile.presentation.dto.PinWalkthroughRequest;
 import com.pet.walkthroughserver.modules.profile.presentation.dto.PinnedWalkthroughResponse;
 import com.pet.walkthroughserver.modules.profile.presentation.dto.ProfileResponse;
+import com.pet.walkthroughserver.modules.profile.presentation.dto.ProfileReviewingResponse;
 import com.pet.walkthroughserver.modules.profile.presentation.dto.ProfileStatsResponse;
 import com.pet.walkthroughserver.modules.profile.presentation.dto.ReorderPinsRequest;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.WalkthroughSummaryResponse;
@@ -76,14 +77,17 @@ public class ProfileController {
     @GetMapping("/v1/users/{username}/walkthroughs")
     public ResponseEntity<DataResponse<ListData<WalkthroughSummaryResponse>>> getUserWalkthroughs(
             @PathVariable String username,
-            @AuthenticationPrincipal AuthUser authUser) {
+            @AuthenticationPrincipal AuthUser authUser,
+            @RequestParam(required = false) WalkthroughStatus status) {
         UserEntity user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
 
         boolean isSelf = authUser != null && UUID.fromString(authUser.getUserId()).equals(user.getId());
 
         List<WalkthroughEntity> walkthroughs;
-        if (isSelf) {
+        if (status != null && isSelf) {
+            walkthroughs = walkthroughRepository.findByUserIdAndStatusOrderByUpdatedAtDesc(user.getId(), status);
+        } else if (isSelf) {
             walkthroughs = walkthroughRepository.findByUserIdOrderByUpdatedAtDesc(user.getId());
         } else {
             walkthroughs = walkthroughRepository.findByUserIdAndStatusOrderByUpdatedAtDesc(
@@ -92,6 +96,15 @@ public class ProfileController {
 
         List<WalkthroughSummaryResponse> responses = walkthroughMapper.toSummaryResponseList(walkthroughs);
         return ResponseEntity.ok(DataResponse.of(ListData.of(responses)));
+    }
+
+    @GetMapping("/v1/users/{username}/reviewing")
+    public ResponseEntity<DataResponse<ListData<ProfileReviewingResponse>>> getReviewing(
+            @PathVariable String username,
+            @AuthenticationPrincipal AuthUser authUser) {
+        UUID viewerId = authUser != null ? UUID.fromString(authUser.getUserId()) : null;
+        List<ProfileReviewingResponse> result = profileService.getReviewing(username, viewerId);
+        return ResponseEntity.ok(DataResponse.of(ListData.of(result)));
     }
 
     @GetMapping("/v1/users/{username}/pins")
