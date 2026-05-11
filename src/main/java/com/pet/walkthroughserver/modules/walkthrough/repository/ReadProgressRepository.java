@@ -21,6 +21,8 @@ public interface ReadProgressRepository extends JpaRepository<ReadProgressEntity
 
     List<ReadProgressEntity> findTop10ByUserIdOrderByReadAtDesc(UUID userId);
 
+    long countByUserId(UUID userId);
+
     @Query("""
             SELECT rp FROM ReadProgressEntity rp
             JOIN WalkthroughEntity w ON w.id = rp.walkthroughId

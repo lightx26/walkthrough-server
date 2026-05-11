@@ -4,5 +4,5 @@ public enum WalkthroughStatus {
     DRAFT,
     PUBLISHED,
     OUTDATED,
-    DEPRECATED
+//    DEPRECATED
 }

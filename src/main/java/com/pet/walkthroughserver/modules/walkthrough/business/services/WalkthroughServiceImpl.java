@@ -227,7 +227,7 @@ public class WalkthroughServiceImpl implements WalkthroughService {
                         published.getPrNumber(), WalkthroughStatus.PUBLISHED);
         for (WalkthroughEntity other : others) {
             if (!other.getId().equals(published.getId())) {
-                other.setStatus(WalkthroughStatus.DEPRECATED);
+                other.setStatus(WalkthroughStatus.OUTDATED);
                 walkthroughRepository.save(other);
             }
         }
