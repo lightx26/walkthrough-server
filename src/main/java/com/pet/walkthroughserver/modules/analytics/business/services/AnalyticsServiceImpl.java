@@ -323,6 +323,7 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                     .owner(wt.getOwner())
                     .repo(wt.getRepo())
                     .prNumber(wt.getPrNumber())
+                    .status(wt.getStatus())
                     .totalChapters(totalChapters)
                     .totalComments((int) commentCount)
                     .unreadChapterCount(unreadChapterCount)

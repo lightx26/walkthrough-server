@@ -4,6 +4,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughStatus;
+
 import lombok.Builder;
 import lombok.Getter;
 
@@ -17,6 +19,7 @@ public class AuthorWalkthroughSummaryResponse {
     private String owner;
     private String repo;
     private Integer prNumber;
+    private WalkthroughStatus status;
     private Integer totalChapters;
     private Integer totalComments;
     private Integer unreadChapterCount;
