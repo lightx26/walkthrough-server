@@ -268,10 +268,17 @@ public class AnalyticsServiceImpl implements AnalyticsService {
     // ── Author summary list (image #2) ──
 
     @Override
-    public List<AuthorWalkthroughSummaryResponse> getAuthorSummary(UUID userId) {
-        // Show only published walkthroughs (skip drafts)
-        List<WalkthroughEntity> wts = walkthroughRepository.findByUserIdOrderByUpdatedAtDesc(userId).stream()
+    public List<AuthorWalkthroughSummaryResponse> getAuthorSummary(UUID userId, String owner, String repo) {
+        // Show only published walkthroughs (skip drafts), optionally scoped to a repo
+        boolean hasRepoScope = owner != null && !owner.isBlank() && repo != null && !repo.isBlank();
+        List<WalkthroughEntity> wts = (hasRepoScope
+                ? walkthroughRepository.findByUserIdAndOwnerAndRepoOrderByUpdatedAtDesc(userId, owner, repo)
+                : walkthroughRepository.findByUserIdOrderByUpdatedAtDesc(userId))
+                .stream()
                 .filter(w -> w.getStatus() != WalkthroughStatus.DRAFT)
+                .sorted(Comparator.comparing(WalkthroughEntity::getPrNumber, Comparator.reverseOrder())
+                        .thenComparing(WalkthroughEntity::getStatus)
+                        .thenComparing(WalkthroughEntity::getUpdatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
                 .toList();
 
         List<AuthorWalkthroughSummaryResponse> out = new ArrayList<>(wts.size());
@@ -331,6 +338,7 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                     .reviewers(reviewers)
                     .build());
         }
+
         return out;
     }
 
@@ -380,11 +388,12 @@ public class AnalyticsServiceImpl implements AnalyticsService {
     }
 
     private static Instant toInstant(Object o) {
-        if (o == null) return null;
-        if (o instanceof Instant i) return i;
-        if (o instanceof java.sql.Timestamp ts) return ts.toInstant();
-        if (o instanceof java.time.OffsetDateTime odt) return odt.toInstant();
-        return null;
+        return switch (o) {
+            case Instant i -> i;
+            case java.sql.Timestamp ts -> ts.toInstant();
+            case java.time.OffsetDateTime odt -> odt.toInstant();
+            case null, default -> null;
+        };
     }
 
     private static double round2(double v) {

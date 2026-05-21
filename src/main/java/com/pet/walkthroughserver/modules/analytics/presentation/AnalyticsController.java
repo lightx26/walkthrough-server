@@ -80,9 +80,11 @@ public class AnalyticsController {
     @GetMapping("/author-summary")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<DataResponse<ListData<AuthorWalkthroughSummaryResponse>>> authorSummary(
-            @AuthenticationPrincipal AuthUser authUser) {
+            @AuthenticationPrincipal AuthUser authUser,
+            @RequestParam(required = false) String owner,
+            @RequestParam(required = false) String repo) {
         UUID userId = UUID.fromString(authUser.getUserId());
-        List<AuthorWalkthroughSummaryResponse> list = analyticsService.getAuthorSummary(userId);
+        List<AuthorWalkthroughSummaryResponse> list = analyticsService.getAuthorSummary(userId, owner, repo);
         return ResponseEntity.ok(DataResponse.of(ListData.of(list)));
     }
 }

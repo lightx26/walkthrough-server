@@ -20,5 +20,5 @@ public interface AnalyticsService {
 
     RepoMetricsResponse getRepoMetrics(UUID userId, String owner, String repo, LocalDate from, LocalDate to);
 
-    List<AuthorWalkthroughSummaryResponse> getAuthorSummary(UUID userId);
+    List<AuthorWalkthroughSummaryResponse> getAuthorSummary(UUID userId, String owner, String repo);
 }

@@ -26,6 +26,8 @@ public interface WalkthroughRepository extends JpaRepository<WalkthroughEntity, 
 
     List<WalkthroughEntity> findByUserIdOrderByUpdatedAtDesc(UUID userId);
 
+    List<WalkthroughEntity> findByUserIdAndOwnerAndRepoOrderByUpdatedAtDesc(UUID userId, String owner, String repo);
+
     long countByUserId(UUID userId);
 
     long countByUserIdAndStatus(UUID userId, WalkthroughStatus status);
