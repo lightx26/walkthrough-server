@@ -104,6 +104,7 @@ public class WalkthroughServiceImpl implements WalkthroughService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     @Cacheable(value = CacheNames.WALKTHROUGH_DETAIL, key = "#id")
     public WalkthroughEntity getById(UUID id, UUID requestingUserId) {
         WalkthroughEntity walkthrough = walkthroughRepository.findByIdWithUser(id)
@@ -111,6 +112,14 @@ public class WalkthroughServiceImpl implements WalkthroughService {
         boolean isOwner = walkthrough.getUserId().equals(requestingUserId);
         if (!isOwner && walkthrough.getStatus() != WalkthroughStatus.PUBLISHED) {
             throw new WalkthroughNotFoundException("Walkthrough not found");
+        }
+        // Force-initialize lazy collections while the session is open so that
+        // the presentation mapper (and any cached entity) can safely traverse
+        // chapters → files → annotations after the transaction completes.
+        for (ChapterEntity chapter : walkthrough.getChapters()) {
+            for (WalkthroughFileEntity file : chapter.getFiles()) {
+                file.getAnnotations().size();
+            }
         }
         return walkthrough;
     }
