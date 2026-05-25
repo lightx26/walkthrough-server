@@ -75,4 +75,6 @@ public interface WalkthroughRepository extends JpaRepository<WalkthroughEntity, 
 
     List<WalkthroughEntity> findByOwnerAndRepoAndPrNumberAndStatus(
             String owner, String repo, Integer prNumber, WalkthroughStatus status);
+
+    long countByOwnerAndRepoAndStatusNot(String owner, String repo, WalkthroughStatus status);
 }

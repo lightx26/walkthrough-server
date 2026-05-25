@@ -24,6 +24,8 @@ public interface WalkthroughService {
 
     long countByRepo(String owner, String repo, UUID requestingUserId);
 
+    long countNonDraftByRepo(String owner, String repo);
+
     long countByPr(String owner, String repo, int prNumber, UUID requestingUserId);
 
     Map<String, Long> countByRepos(List<String> repoFullNames, UUID requestingUserId);

@@ -16,7 +16,6 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.pet.walkthroughserver.configs.CacheNames;
-
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequest;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequestFile;
 import com.pet.walkthroughserver.modules.comment.repository.CommentRepository;
@@ -186,6 +185,11 @@ public class WalkthroughServiceImpl implements WalkthroughService {
     @Cacheable(value = CacheNames.WALKTHROUGH_COUNT_REPO, key = "#owner + ':' + #repo + ':' + #requestingUserId")
     public long countByRepo(String owner, String repo, UUID requestingUserId) {
         return walkthroughRepository.countByOwnerAndRepoForUser(owner, repo, requestingUserId);
+    }
+
+    @Override
+    public long countNonDraftByRepo(String owner, String repo) {
+        return walkthroughRepository.countByOwnerAndRepoAndStatusNot(owner, repo, WalkthroughStatus.DRAFT);
     }
 
     @Override

@@ -77,7 +77,7 @@ public class GitHubRepoController {
             @PathVariable String repo) {
         UUID userId = UUID.fromString(authUser.getUserId());
         GitHubRepository repository = gitHubRepoService.getRepository(userId, owner, repo);
-        long walkthroughsCount = walkthroughService.countByRepo(owner, repo, userId);
+        long walkthroughsCount = walkthroughService.countNonDraftByRepo(owner, repo);
         boolean isPinned = pinnedRepoService.isPinned(userId, owner + "/" + repo);
         RepositoryResponse response = repositoryMapper.toResponse(repository).toBuilder()
                 .walkthroughsCount(walkthroughsCount)
