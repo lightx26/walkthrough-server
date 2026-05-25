@@ -1,6 +1,7 @@
 package com.pet.walkthroughserver.modules._shared.infra.github;
 
 import java.util.List;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -8,7 +9,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubAccessTokenResponse;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubCommit;
@@ -49,13 +53,13 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
     public GitHubAccessTokenResponse exchangeCodeForToken(String code) {
         record TokenRequest(String client_id, String client_secret, String code) {}
 
-        GitHubAccessTokenResponse response = restClient.post()
+        GitHubAccessTokenResponse response = execute("POST /login/oauth/access_token", () -> restClient.post()
                 .uri(GITHUB_TOKEN_URL)
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON)
                 .body(new TokenRequest(clientId, clientSecret, code))
                 .retrieve()
-                .body(GitHubAccessTokenResponse.class);
+                .body(GitHubAccessTokenResponse.class));
 
         if (response == null || response.hasError()) {
             String errorMsg = response != null ? response.getErrorDescription() : "No response from GitHub";
@@ -69,12 +73,12 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
 
     @Override
     public GitHubUserInfo fetchUserInfo(String accessToken) {
-        GitHubUserInfo userInfo = restClient.get()
+        GitHubUserInfo userInfo = execute("GET /user", () -> restClient.get()
                 .uri(GITHUB_USER_API_URL)
                 .header("Authorization", "Bearer " + accessToken)
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
-                .body(GitHubUserInfo.class);
+                .body(GitHubUserInfo.class));
 
         if (userInfo == null || userInfo.getId() == null) {
             throw new GitHubAuthFailedException("Failed to fetch GitHub user info");
@@ -89,15 +93,33 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
     private static final Pattern LINK_LAST_PAGE_PATTERN =
             Pattern.compile("<[^>]*[?&]page=(\\d+)[^>]*>;\\s*rel=\"last\"");
 
+    private <T> T execute(String description, Supplier<T> call) {
+        try {
+            return call.get();
+        } catch (HttpClientErrorException.NotFound ex) {
+            log.warn("GitHub API [{}] — 404 Not Found", description);
+            throw new GitHubResourceNotFoundException("GitHub resource not found: " + description);
+        } catch (HttpClientErrorException.Unauthorized | HttpClientErrorException.Forbidden ex) {
+            log.warn("GitHub API [{}] — {} {}", description, ex.getStatusCode(), ex.getResponseBodyAsString());
+            throw new GitHubAuthFailedException("GitHub authentication failed for " + description);
+        } catch (RestClientResponseException ex) {
+            log.warn("GitHub API [{}] — {} {}", description, ex.getStatusCode(), ex.getResponseBodyAsString());
+            throw new GitHubApiException("GitHub API error (" + ex.getStatusCode() + ") for " + description);
+        } catch (ResourceAccessException ex) {
+            log.warn("GitHub API [{}] — I/O error: {}", description, ex.getMessage());
+            throw new GitHubApiException("GitHub API unreachable for " + description);
+        }
+    }
+
     @Override
     public GitHubPagedResult<GitHubRepository> fetchUserRepositories(String accessToken, int page, int perPage, String sort) {
-        var response = restClient.get()
+        var response = execute("GET /user/repos", () -> restClient.get()
                 .uri(GITHUB_USER_API_URL + "/repos?page={page}&per_page={perPage}&sort={sort}&affiliation=owner,collaborator,organization_member",
                         page, perPage, sort)
                 .header("Authorization", "Bearer " + accessToken)
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
-                .toEntity(new ParameterizedTypeReference<List<GitHubRepository>>() {});
+                .toEntity(new ParameterizedTypeReference<List<GitHubRepository>>() {}));
 
         List<GitHubRepository> repos = response.getBody();
         if (repos == null) {
@@ -122,12 +144,12 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
 
     @Override
     public GitHubRepository fetchRepository(String accessToken, String owner, String repo) {
-        GitHubRepository repository = restClient.get()
+        GitHubRepository repository = execute("GET /repos/" + owner + "/" + repo, () -> restClient.get()
                 .uri(GITHUB_API_URL + "/repos/{owner}/{repo}", owner, repo)
                 .header("Authorization", "Bearer " + accessToken)
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
-                .body(GitHubRepository.class);
+                .body(GitHubRepository.class));
 
         if (repository == null) {
             throw new GitHubResourceNotFoundException("Repository not found: " + owner + "/" + repo);
@@ -139,13 +161,13 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
 
     @Override
     public GitHubSearchReposResponse searchRepositories(String accessToken, String query, int page, int perPage) {
-        GitHubSearchReposResponse response = restClient.get()
+        GitHubSearchReposResponse response = execute("GET /search/repositories", () -> restClient.get()
                 .uri(GITHUB_API_URL + "/search/repositories?q={query}&page={page}&per_page={perPage}&sort=updated",
                         query, page, perPage)
                 .header("Authorization", "Bearer " + accessToken)
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
-                .body(GitHubSearchReposResponse.class);
+                .body(GitHubSearchReposResponse.class));
 
         if (response == null) {
             throw new GitHubApiException("Failed to search repositories on GitHub");
@@ -159,13 +181,14 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
     public List<GitHubPullRequest> fetchPullRequests(String accessToken, String owner, String repo,
                                                       String state, int page, int perPage) {
         String githubState = "merged".equals(state) ? "closed" : state;
-        List<GitHubPullRequest> pullRequests = restClient.get()
-                .uri(GITHUB_API_URL + "/repos/{owner}/{repo}/pulls?state={state}&page={page}&per_page={perPage}&sort=updated&direction=desc",
-                        owner, repo, githubState, page, perPage)
-                .header("Authorization", "Bearer " + accessToken)
-                .accept(MediaType.APPLICATION_JSON)
-                .retrieve()
-                .body(new ParameterizedTypeReference<>() {});
+        List<GitHubPullRequest> pullRequests = execute("GET /repos/" + owner + "/" + repo + "/pulls",
+                () -> restClient.get()
+                        .uri(GITHUB_API_URL + "/repos/{owner}/{repo}/pulls?state={state}&page={page}&per_page={perPage}&sort=updated&direction=desc",
+                                owner, repo, githubState, page, perPage)
+                        .header("Authorization", "Bearer " + accessToken)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .retrieve()
+                        .body(new ParameterizedTypeReference<List<GitHubPullRequest>>() {}));
 
         if (pullRequests == null) {
             throw new GitHubApiException("Failed to fetch pull requests from GitHub");
@@ -177,13 +200,14 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
 
     @Override
     public GitHubPullRequest fetchPullRequest(String accessToken, String owner, String repo, int pullNumber) {
-        GitHubPullRequest pullRequest = restClient.get()
-                .uri(GITHUB_API_URL + "/repos/{owner}/{repo}/pulls/{pullNumber}",
-                        owner, repo, pullNumber)
-                .header("Authorization", "Bearer " + accessToken)
-                .accept(MediaType.APPLICATION_JSON)
-                .retrieve()
-                .body(GitHubPullRequest.class);
+        GitHubPullRequest pullRequest = execute("GET /repos/" + owner + "/" + repo + "/pulls/" + pullNumber,
+                () -> restClient.get()
+                        .uri(GITHUB_API_URL + "/repos/{owner}/{repo}/pulls/{pullNumber}",
+                                owner, repo, pullNumber)
+                        .header("Authorization", "Bearer " + accessToken)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .retrieve()
+                        .body(GitHubPullRequest.class));
 
         if (pullRequest == null) {
             throw new GitHubResourceNotFoundException("Pull request not found");
@@ -195,13 +219,14 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
 
     @Override
     public List<GitHubCommit> fetchPullRequestCommits(String accessToken, String owner, String repo, int pullNumber) {
-        List<GitHubCommit> commits = restClient.get()
-                .uri(GITHUB_API_URL + "/repos/{owner}/{repo}/pulls/{pullNumber}/commits?per_page=100",
-                        owner, repo, pullNumber)
-                .header("Authorization", "Bearer " + accessToken)
-                .accept(MediaType.APPLICATION_JSON)
-                .retrieve()
-                .body(new ParameterizedTypeReference<>() {});
+        List<GitHubCommit> commits = execute("GET /repos/" + owner + "/" + repo + "/pulls/" + pullNumber + "/commits",
+                () -> restClient.get()
+                        .uri(GITHUB_API_URL + "/repos/{owner}/{repo}/pulls/{pullNumber}/commits?per_page=100",
+                                owner, repo, pullNumber)
+                        .header("Authorization", "Bearer " + accessToken)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .retrieve()
+                        .body(new ParameterizedTypeReference<List<GitHubCommit>>() {}));
 
         if (commits == null) {
             throw new GitHubApiException("Failed to fetch pull request commits from GitHub");
@@ -213,13 +238,14 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
 
     @Override
     public List<GitHubPullRequestFile> fetchPullRequestFiles(String accessToken, String owner, String repo, int pullNumber) {
-        List<GitHubPullRequestFile> files = restClient.get()
-                .uri(GITHUB_API_URL + "/repos/{owner}/{repo}/pulls/{pullNumber}/files?per_page=100",
-                        owner, repo, pullNumber)
-                .header("Authorization", "Bearer " + accessToken)
-                .accept(MediaType.APPLICATION_JSON)
-                .retrieve()
-                .body(new ParameterizedTypeReference<>() {});
+        List<GitHubPullRequestFile> files = execute("GET /repos/" + owner + "/" + repo + "/pulls/" + pullNumber + "/files",
+                () -> restClient.get()
+                        .uri(GITHUB_API_URL + "/repos/{owner}/{repo}/pulls/{pullNumber}/files?per_page=100",
+                                owner, repo, pullNumber)
+                        .header("Authorization", "Bearer " + accessToken)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .retrieve()
+                        .body(new ParameterizedTypeReference<List<GitHubPullRequestFile>>() {}));
 
         if (files == null) {
             throw new GitHubApiException("Failed to fetch pull request files from GitHub");
@@ -233,13 +259,14 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
     public List<GitHubPullRequestFile> fetchCommitFiles(String accessToken, String owner, String repo, String commitSha) {
         record GitHubCommitDetail(List<GitHubPullRequestFile> files) {}
 
-        GitHubCommitDetail detail = restClient.get()
-                .uri(GITHUB_API_URL + "/repos/{owner}/{repo}/commits/{sha}",
-                        owner, repo, commitSha)
-                .header("Authorization", "Bearer " + accessToken)
-                .accept(MediaType.APPLICATION_JSON)
-                .retrieve()
-                .body(GitHubCommitDetail.class);
+        GitHubCommitDetail detail = execute("GET /repos/" + owner + "/" + repo + "/commits/" + commitSha,
+                () -> restClient.get()
+                        .uri(GITHUB_API_URL + "/repos/{owner}/{repo}/commits/{sha}",
+                                owner, repo, commitSha)
+                        .header("Authorization", "Bearer " + accessToken)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .retrieve()
+                        .body(GitHubCommitDetail.class));
 
         if (detail == null || detail.files() == null) {
             throw new GitHubApiException("Failed to fetch commit files from GitHub");
@@ -255,15 +282,16 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
         record ReviewCommentRequest(String body, String commit_id, String path, int position) {}
         record ReviewCommentResponse(Long id) {}
 
-        ReviewCommentResponse response = restClient.post()
-                .uri(GITHUB_API_URL + "/repos/{owner}/{repo}/pulls/{prNumber}/comments",
-                        owner, repo, prNumber)
-                .header("Authorization", "Bearer " + accessToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .accept(MediaType.APPLICATION_JSON)
-                .body(new ReviewCommentRequest(body, commitId, path, position))
-                .retrieve()
-                .body(ReviewCommentResponse.class);
+        ReviewCommentResponse response = execute("POST /repos/" + owner + "/" + repo + "/pulls/" + prNumber + "/comments",
+                () -> restClient.post()
+                        .uri(GITHUB_API_URL + "/repos/{owner}/{repo}/pulls/{prNumber}/comments",
+                                owner, repo, prNumber)
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .body(new ReviewCommentRequest(body, commitId, path, position))
+                        .retrieve()
+                        .body(ReviewCommentResponse.class));
 
         if (response == null || response.id() == null) {
             throw new GitHubApiException("Failed to create pull review comment on GitHub");
@@ -277,13 +305,13 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
     public List<GitHubPullRequest> searchUserPullRequests(String accessToken, String username, int perPage) {
         record SearchResponse(List<GitHubPullRequest> items) {}
 
-        SearchResponse response = restClient.get()
+        SearchResponse response = execute("GET /search/issues (user PRs)", () -> restClient.get()
                 .uri(GITHUB_API_URL + "/search/issues?q=type:pr+author:{username}+sort:updated&per_page={perPage}",
                         username, perPage)
                 .header("Authorization", "Bearer " + accessToken)
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
-                .body(SearchResponse.class);
+                .body(SearchResponse.class));
 
         if (response == null || response.items() == null) {
             throw new GitHubApiException("Failed to search pull requests on GitHub");
@@ -296,13 +324,13 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
     @Override
     public GitHubSearchPrsResponse searchPullRequests(String accessToken, String query, String username, int perPage) {
         String scopedQuery = query + " type:pr author:" + username;
-        GitHubSearchPrsResponse response = restClient.get()
+        GitHubSearchPrsResponse response = execute("GET /search/issues (PR search)", () -> restClient.get()
                 .uri(GITHUB_API_URL + "/search/issues?q={query}&per_page={perPage}&sort=updated",
                         scopedQuery, perPage)
                 .header("Authorization", "Bearer " + accessToken)
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
-                .body(GitHubSearchPrsResponse.class);
+                .body(GitHubSearchPrsResponse.class));
 
         if (response == null || response.getItems() == null) {
             throw new GitHubApiException("Failed to search pull requests on GitHub");
@@ -317,15 +345,16 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
         record CommentRequest(String body) {}
         record CommentResponse(Long id) {}
 
-        CommentResponse response = restClient.post()
-                .uri(GITHUB_API_URL + "/repos/{owner}/{repo}/issues/{issueNumber}/comments",
-                        owner, repo, issueNumber)
-                .header("Authorization", "Bearer " + accessToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .accept(MediaType.APPLICATION_JSON)
-                .body(new CommentRequest(body))
-                .retrieve()
-                .body(CommentResponse.class);
+        CommentResponse response = execute("POST /repos/" + owner + "/" + repo + "/issues/" + issueNumber + "/comments",
+                () -> restClient.post()
+                        .uri(GITHUB_API_URL + "/repos/{owner}/{repo}/issues/{issueNumber}/comments",
+                                owner, repo, issueNumber)
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .body(new CommentRequest(body))
+                        .retrieve()
+                        .body(CommentResponse.class));
 
         if (response == null || response.id() == null) {
             throw new GitHubApiException("Failed to create issue comment on GitHub");
