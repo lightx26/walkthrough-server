@@ -15,6 +15,7 @@ public class TemplateSummaryResponse {
     private String description;
     private TemplatePrType prType;
     private Boolean isBuiltin;
+    private Long duplicateCount;
     private Integer chapterCount;
     private Instant updatedAt;
 }

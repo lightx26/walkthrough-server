@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -53,6 +54,7 @@ public class TemplateServiceImpl implements TemplateService {
                 .description(request.getDescription())
                 .prType(request.getPrType())
                 .isBuiltin(false)
+                .duplicateCount(0L)
                 .chapters(new ArrayList<>())
                 .build();
 
@@ -129,6 +131,7 @@ public class TemplateServiceImpl implements TemplateService {
                 .description(source.getDescription())
                 .prType(source.getPrType())
                 .isBuiltin(false)
+                .duplicateCount(0L)
                 .chapters(new ArrayList<>())
                 .build();
 
@@ -142,7 +145,18 @@ public class TemplateServiceImpl implements TemplateService {
             copy.getChapters().add(chapter);
         }
 
+        long previous = source.getDuplicateCount() == null ? 0L : source.getDuplicateCount();
+        source.setDuplicateCount(previous + 1);
+        templateRepository.save(source);
+
         return templateRepository.save(copy);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<TemplateEntity> topDuplicatedBuiltins(int limit) {
+        int safeLimit = Math.max(1, Math.min(limit, 50));
+        return templateRepository.findTopBuiltinsByDuplicateCount(PageRequest.of(0, safeLimit));
     }
 
     private void assertReadable(TemplateEntity template, UUID userId) {

@@ -21,4 +21,6 @@ public interface TemplateService {
     void delete(UUID templateId, UUID userId);
 
     TemplateEntity duplicate(UUID templateId, UUID userId, String overrideName);
+
+    List<TemplateEntity> topDuplicatedBuiltins(int limit);
 }

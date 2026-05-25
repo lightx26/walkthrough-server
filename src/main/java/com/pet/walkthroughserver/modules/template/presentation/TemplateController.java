@@ -23,6 +23,7 @@ import com.pet.walkthroughserver.modules.template.business.services.TemplateServ
 import com.pet.walkthroughserver.modules.template.presentation.dto.CreateTemplateRequest;
 import com.pet.walkthroughserver.modules.template.presentation.dto.DuplicateTemplateRequest;
 import com.pet.walkthroughserver.modules.template.presentation.dto.TemplateResponse;
+import com.pet.walkthroughserver.modules.template.presentation.dto.TemplateSummaryResponse;
 import com.pet.walkthroughserver.modules.template.presentation.dto.UpdateTemplateRequest;
 import com.pet.walkthroughserver.modules.template.presentation.mapper.TemplatePresentationMapper;
 import com.pet.walkthroughserver.modules.template.repository.TemplateEntity;
@@ -91,6 +92,17 @@ public class TemplateController {
         UUID userId = UUID.fromString(authUser.getUserId());
         templateService.delete(id, userId);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+    }
+
+    @GetMapping("/stats/top-duplicated")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<DataResponse<ListData<TemplateSummaryResponse>>> topDuplicated(
+            @RequestParam(defaultValue = "5") int limit) {
+        List<TemplateEntity> entities = templateService.topDuplicatedBuiltins(limit);
+        List<TemplateSummaryResponse> responses = entities.stream()
+                .map(templateMapper::toSummaryResponse)
+                .toList();
+        return ResponseEntity.ok(DataResponse.of(ListData.of(responses)));
     }
 
     @PostMapping("/{id}/duplicate")

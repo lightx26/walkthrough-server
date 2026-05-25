@@ -16,6 +16,7 @@ public class TemplateResponse {
     private String description;
     private TemplatePrType prType;
     private Boolean isBuiltin;
+    private Long duplicateCount;
     private List<TemplateChapterResponse> chapters;
     private Instant createdAt;
     private Instant updatedAt;

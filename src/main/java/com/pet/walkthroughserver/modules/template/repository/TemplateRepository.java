@@ -3,6 +3,7 @@ package com.pet.walkthroughserver.modules.template.repository;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -31,4 +32,11 @@ public interface TemplateRepository extends JpaRepository<TemplateEntity, UUID> 
             """)
     List<TemplateEntity> findVisibleToUserByPrType(@Param("userId") UUID userId,
                                                     @Param("prType") TemplatePrType prType);
+
+    @Query("""
+            SELECT t FROM TemplateEntity t
+            WHERE t.isBuiltin = true
+            ORDER BY t.duplicateCount DESC, t.name ASC
+            """)
+    List<TemplateEntity> findTopBuiltinsByDuplicateCount(Pageable pageable);
 }

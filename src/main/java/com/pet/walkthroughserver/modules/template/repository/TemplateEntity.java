@@ -45,6 +45,9 @@ public class TemplateEntity extends BaseEntity {
     @Column(name = "is_builtin", nullable = false)
     private Boolean isBuiltin;
 
+    @Column(name = "duplicate_count", nullable = false)
+    private Long duplicateCount;
+
     @OneToMany(mappedBy = "template", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("sortOrder ASC")
     @Builder.Default
