@@ -1,6 +1,7 @@
 package com.pet.walkthroughserver.modules.comment.business.services;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import com.pet.walkthroughserver.modules.comment.presentation.dto.CreateCommentRequest;
@@ -13,6 +14,8 @@ public interface CommentService {
     List<CommentEntity> listComments(UUID walkthroughId);
 
     List<CommentEntity> listFileComments(UUID walkthroughFileId);
+
+    Map<UUID, List<CommentEntity>> listBatchFileComments(List<UUID> walkthroughFileIds);
 
     List<CommentEntity> listChapterComments(UUID chapterId);
 

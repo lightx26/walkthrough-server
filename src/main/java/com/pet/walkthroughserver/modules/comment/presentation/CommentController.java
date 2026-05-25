@@ -1,7 +1,9 @@
 package com.pet.walkthroughserver.modules.comment.presentation;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -63,6 +65,20 @@ public class CommentController {
         List<CommentEntity> entities = commentService.listFileComments(fileId);
         List<CommentResponse> responses = buildThreadedResponses(entities);
         return ResponseEntity.ok(DataResponse.of(ListData.of(responses)));
+    }
+
+    @PostMapping("/{walkthroughId}/batch-file-comments")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<DataResponse<Map<UUID, List<CommentResponse>>>> listBatchFileComments(
+            @PathVariable UUID walkthroughId,
+            @RequestBody List<UUID> fileIds) {
+        Map<UUID, List<CommentEntity>> grouped = commentService.listBatchFileComments(fileIds);
+        Map<UUID, List<CommentResponse>> result = grouped.entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        e -> buildThreadedResponses(e.getValue())
+                ));
+        return ResponseEntity.ok(DataResponse.of(result));
     }
 
     @GetMapping("/{walkthroughId}/chapters/{chapterId}/comments")

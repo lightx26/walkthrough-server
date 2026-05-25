@@ -14,6 +14,8 @@ public interface CommentRepository extends JpaRepository<CommentEntity, UUID> {
 
     List<CommentEntity> findByWalkthroughFileIdAndParentIdIsNullOrderByCreatedAtAsc(UUID walkthroughFileId);
 
+    List<CommentEntity> findByWalkthroughFileIdInAndParentIdIsNullOrderByCreatedAtAsc(List<UUID> walkthroughFileIds);
+
     List<CommentEntity> findByChapterIdAndWalkthroughFileIdIsNullAndParentIdIsNullOrderByCreatedAtAsc(UUID chapterId);
 
     List<CommentEntity> findByParentIdOrderByCreatedAtAsc(UUID parentId);

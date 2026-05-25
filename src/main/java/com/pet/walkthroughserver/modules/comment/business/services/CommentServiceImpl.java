@@ -1,6 +1,7 @@
 package com.pet.walkthroughserver.modules.comment.business.services;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
@@ -73,6 +74,14 @@ public class CommentServiceImpl implements CommentService {
     @Override
     public List<CommentEntity> listFileComments(UUID walkthroughFileId) {
         return commentRepository.findByWalkthroughFileIdAndParentIdIsNullOrderByCreatedAtAsc(walkthroughFileId);
+    }
+
+    @Override
+    public Map<UUID, List<CommentEntity>> listBatchFileComments(List<UUID> walkthroughFileIds) {
+        if (walkthroughFileIds.isEmpty()) return Map.of();
+        return commentRepository.findByWalkthroughFileIdInAndParentIdIsNullOrderByCreatedAtAsc(walkthroughFileIds)
+                .stream()
+                .collect(java.util.stream.Collectors.groupingBy(CommentEntity::getWalkthroughFileId));
     }
 
     @Override
