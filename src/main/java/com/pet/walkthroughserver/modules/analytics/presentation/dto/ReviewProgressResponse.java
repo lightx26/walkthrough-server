@@ -36,7 +36,6 @@ public class ReviewProgressResponse {
         private UUID chapterId;
         private String chapterTitle;
         private Integer order;
-        private Boolean read;
         private Boolean markedAsRead;
         private Integer timeSpentSec;
         private Integer commentCount;

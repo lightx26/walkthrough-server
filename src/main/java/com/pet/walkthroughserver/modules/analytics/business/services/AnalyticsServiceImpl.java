@@ -69,8 +69,7 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                         .chapterId(c.getId())
                         .chapterTitle(c.getTitle())
                         .order(c.getSortOrder())
-                        .read(s != null)
-                        .markedAsRead(s != null ? toBool(s.get("marked_as_read")) : null)
+                        .markedAsRead(s != null && toBool(s.get("marked_as_read")))
                         .timeSpentSec(s != null ? toInt(s.get("time_spent_sec")) : 0)
                         .commentCount(s != null ? toInt(s.get("comment_count")) : 0)
                         .viewCount(s != null ? toInt(s.get("view_count")) : 0)
@@ -135,16 +134,19 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         for (ChapterEntity c : chapters) {
             List<Map.Entry<UUID, Tuple>> entries = byChapter.getOrDefault(c.getId(), List.of());
             List<AttentionEntry> attention = new ArrayList<>();
+            int markedCount = 0;
             for (var e : entries) {
                 Tuple s = e.getValue();
                 Tuple u = userMeta.get(e.getKey());
+                boolean marked = toBool(s.get("marked_as_read"));
+                if (marked) markedCount++;
                 attention.add(AttentionEntry.builder()
                         .userId(e.getKey())
                         .username(u != null ? (String) u.get("username") : null)
                         .displayName(u != null ? (String) u.get("display_name") : null)
                         .avatarUrl(u != null ? (String) u.get("avatar_url") : null)
                         .timeSpentSec(toInt(s.get("time_spent_sec")))
-                        .markedAsRead(toBool(s.get("marked_as_read")))
+                        .markedAsRead(marked)
                         .commentCount(toInt(s.get("comment_count")))
                         .viewCount(toInt(s.get("view_count")))
                         .build());
@@ -155,7 +157,7 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                     .chapterTitle(c.getTitle())
                     .order(c.getSortOrder())
                     .totalComments(commentsByChapter.getOrDefault(c.getId(), 0))
-                    .allRead(reviewerCount > 0 && entries.size() >= reviewerCount)
+                    .allRead(reviewerCount > 0 && markedCount >= reviewerCount)
                     .attention(attention)
                     .build());
         }
@@ -187,7 +189,9 @@ public class AnalyticsServiceImpl implements AnalyticsService {
             List<UnreadByUser> unreadBy = new ArrayList<>();
             for (UUID reviewerId : userMeta.keySet()) {
                 Map<UUID, Tuple> stats = statsByUserChapter.getOrDefault(reviewerId, Map.of());
-                if (!stats.containsKey(c.getId())) {
+                Tuple cell = stats.get(c.getId());
+                boolean marked = cell != null && toBool(cell.get("marked_as_read"));
+                if (!marked) {
                     Tuple u = userMeta.get(reviewerId);
                     unreadBy.add(UnreadByUser.builder()
                             .userId(reviewerId)
@@ -293,10 +297,12 @@ public class AnalyticsServiceImpl implements AnalyticsService {
             Instant lastActivity = wt.getUpdatedAt();
             int unreadChapterCount = 0;
 
-            // Count chapters unread by at least one reviewer
+            // Count chapters not yet marked as read by at least one reviewer
             for (ChapterEntity c : wt.getChapters()) {
                 for (UUID reviewerId : statsByUserChapter.keySet()) {
-                    if (!statsByUserChapter.get(reviewerId).containsKey(c.getId())) {
+                    Tuple cell = statsByUserChapter.get(reviewerId).get(c.getId());
+                    boolean marked = cell != null && toBool(cell.get("marked_as_read"));
+                    if (!marked) {
                         unreadChapterCount++;
                         break;
                     }

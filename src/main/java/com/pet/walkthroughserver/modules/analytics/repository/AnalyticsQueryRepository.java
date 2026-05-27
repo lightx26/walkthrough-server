@@ -55,30 +55,46 @@ public class AnalyticsQueryRepository {
     }
 
     /**
-     * Per (reviewer, chapter) view stats for a walkthrough.
-     * Returns one row per (user_id, chapter_id) the user actually viewed.
+     * Per (reviewer, chapter) stats for a walkthrough.
+     * One row per (user_id, chapter_id) where the user either viewed the chapter or
+     * explicitly marked it as read. Either side can be empty.
      *
-     * Columns: user_id, chapter_id, time_spent_sec, scrolled_to_bottom,
+     * Columns: user_id, chapter_id, time_spent_sec, marked_as_read,
      *          view_count, comment_count
      */
     @SuppressWarnings("unchecked")
     public List<Tuple> findChapterStatsForWalkthrough(UUID walkthroughId) {
         return em.createNativeQuery("""
-                SELECT cve.user_id                                 AS user_id,
-                       cve.chapter_id                              AS chapter_id,
-                       COALESCE(SUM(cve.time_spent_sec), 0)::int   AS time_spent_sec,
-                       BOOL_OR(cve.marked_as_read)               AS marked_as_read,
-                       COUNT(cve.id)::int                          AS view_count,
+                WITH views AS (
+                    SELECT cve.user_id,
+                           cve.chapter_id,
+                           COALESCE(SUM(cve.time_spent_sec), 0)::int AS time_spent_sec,
+                           COUNT(cve.id)::int                        AS view_count
+                    FROM walkthrough.chapter_view_events cve
+                    JOIN walkthrough.walkthrough_chapters c ON c.id = cve.chapter_id
+                    WHERE c.walkthrough_id = :walkthroughId
+                    GROUP BY cve.user_id, cve.chapter_id
+                ),
+                marks AS (
+                    SELECT m.user_id, m.chapter_id
+                    FROM walkthrough.chapter_read_marks m
+                    WHERE m.walkthrough_id = :walkthroughId
+                )
+                SELECT COALESCE(v.user_id, m.user_id)        AS user_id,
+                       COALESCE(v.chapter_id, m.chapter_id)  AS chapter_id,
+                       COALESCE(v.time_spent_sec, 0)         AS time_spent_sec,
+                       (m.user_id IS NOT NULL)               AS marked_as_read,
+                       COALESCE(v.view_count, 0)             AS view_count,
                        (
                            SELECT COUNT(cm.id)
                            FROM walkthrough.walkthrough_comments cm
-                           WHERE cm.chapter_id = cve.chapter_id
-                             AND cm.user_id   = cve.user_id
-                       )::int                                      AS comment_count
-                FROM walkthrough.chapter_view_events cve
-                JOIN walkthrough.walkthrough_chapters c ON c.id = cve.chapter_id
-                WHERE c.walkthrough_id = :walkthroughId
-                GROUP BY cve.user_id, cve.chapter_id
+                           LEFT JOIN walkthrough.walkthrough_files wf ON wf.id = cm.walkthrough_file_id
+                           WHERE COALESCE(cm.chapter_id, wf.chapter_id) = COALESCE(v.chapter_id, m.chapter_id)
+                             AND cm.user_id = COALESCE(v.user_id, m.user_id)
+                       )::int                                AS comment_count
+                FROM views v
+                FULL OUTER JOIN marks m
+                  ON m.user_id = v.user_id AND m.chapter_id = v.chapter_id
                 """, Tuple.class)
                 .setParameter("walkthroughId", walkthroughId)
                 .getResultList();
@@ -94,7 +110,12 @@ public class AnalyticsQueryRepository {
                 SELECT c.id           AS chapter_id,
                        COUNT(cm.id)::int AS total_comments
                 FROM walkthrough.walkthrough_chapters c
-                LEFT JOIN walkthrough.walkthrough_comments cm ON cm.chapter_id = c.id
+                LEFT JOIN (
+                    SELECT cm.id, COALESCE(cm.chapter_id, wf.chapter_id) AS effective_chapter_id
+                    FROM walkthrough.walkthrough_comments cm
+                    LEFT JOIN walkthrough.walkthrough_files wf ON wf.id = cm.walkthrough_file_id
+                    WHERE cm.walkthrough_id = :walkthroughId
+                ) cm ON cm.effective_chapter_id = c.id
                 WHERE c.walkthrough_id = :walkthroughId
                 GROUP BY c.id
                 """, Tuple.class)
