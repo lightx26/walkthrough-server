@@ -50,7 +50,7 @@ public class ReadProgressServiceImpl implements ReadProgressService {
                 .chapterId(request.getChapterId())
                 .userId(userId)
                 .timeSpentSec(request.getTimeSpentSec() != null ? request.getTimeSpentSec() : 0)
-                .scrolledToBottom(request.getScrolledToBottom() != null ? request.getScrolledToBottom() : false)
+                .markedAsRead(request.getMarkedAsRead() != null ? request.getMarkedAsRead() : false)
                 .viewedAt(Instant.now())
                 .build();
 
@@ -86,6 +86,35 @@ public class ReadProgressServiceImpl implements ReadProgressService {
     @Override
     public List<ReadProgressEntity> listRecentlyReviewed(UUID userId) {
         return readProgressRepository.findRecentlyReviewed(userId);
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(value = CacheNames.WALKTHROUGH_PROGRESS, key = "#userId + ':' + #walkthroughId")
+    public void unmarkChapter(UUID userId, UUID walkthroughId, UUID chapterId) {
+        boolean hadEvents = chapterViewEventRepository.existsByChapterIdAndUserId(chapterId, userId);
+        chapterViewEventRepository.deleteByChapterIdAndUserId(chapterId, userId);
+
+        if (hadEvents) {
+            readProgressRepository.findByUserIdAndWalkthroughIdForUpdate(userId, walkthroughId)
+                    .ifPresent(progress -> {
+                        progress.setReadChapters(Math.max(0, progress.getReadChapters() - 1));
+                        readProgressRepository.save(progress);
+                    });
+        }
+    }
+
+    @Override
+    public List<UUID> getReadChapterIds(UUID userId, UUID walkthroughId) {
+        return walkthroughRepository.findById(walkthroughId)
+                .map(wt -> {
+                    List<UUID> chapterIds = wt.getChapters().stream()
+                            .map(ch -> ch.getId())
+                            .toList();
+                    if (chapterIds.isEmpty()) return List.<UUID>of();
+                    return chapterViewEventRepository.findReadChapterIdsByUserIdAndChapterIds(userId, chapterIds);
+                })
+                .orElse(List.of());
     }
 
     @Override

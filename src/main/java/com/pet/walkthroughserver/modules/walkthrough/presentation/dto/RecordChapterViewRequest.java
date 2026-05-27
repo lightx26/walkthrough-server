@@ -13,5 +13,5 @@ public class RecordChapterViewRequest {
 
     private Integer timeSpentSec;
 
-    private Boolean scrolledToBottom;
+    private Boolean markedAsRead;
 }

@@ -70,7 +70,7 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                         .chapterTitle(c.getTitle())
                         .order(c.getSortOrder())
                         .read(s != null)
-                        .scrolledToBottom(s != null ? toBool(s.get("scrolled_to_bottom")) : null)
+                        .markedAsRead(s != null ? toBool(s.get("marked_as_read")) : null)
                         .timeSpentSec(s != null ? toInt(s.get("time_spent_sec")) : 0)
                         .commentCount(s != null ? toInt(s.get("comment_count")) : 0)
                         .viewCount(s != null ? toInt(s.get("view_count")) : 0)
@@ -144,7 +144,7 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                         .displayName(u != null ? (String) u.get("display_name") : null)
                         .avatarUrl(u != null ? (String) u.get("avatar_url") : null)
                         .timeSpentSec(toInt(s.get("time_spent_sec")))
-                        .scrolledToBottom(toBool(s.get("scrolled_to_bottom")))
+                        .markedAsRead(toBool(s.get("marked_as_read")))
                         .commentCount(toInt(s.get("comment_count")))
                         .viewCount(toInt(s.get("view_count")))
                         .build());

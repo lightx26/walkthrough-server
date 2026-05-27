@@ -32,7 +32,7 @@ public class ChapterAttentionResponse {
         private String displayName;
         private String avatarUrl;
         private Integer timeSpentSec;
-        private Boolean scrolledToBottom;
+        private Boolean markedAsRead;
         private Integer commentCount;
         private Integer viewCount;
     }

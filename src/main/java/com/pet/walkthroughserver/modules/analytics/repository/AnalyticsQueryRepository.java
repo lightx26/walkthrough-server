@@ -67,7 +67,7 @@ public class AnalyticsQueryRepository {
                 SELECT cve.user_id                                 AS user_id,
                        cve.chapter_id                              AS chapter_id,
                        COALESCE(SUM(cve.time_spent_sec), 0)::int   AS time_spent_sec,
-                       BOOL_OR(cve.scrolled_to_bottom)             AS scrolled_to_bottom,
+                       BOOL_OR(cve.marked_as_read)               AS marked_as_read,
                        COUNT(cve.id)::int                          AS view_count,
                        (
                            SELECT COUNT(cm.id)

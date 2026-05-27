@@ -37,7 +37,7 @@ public class ReviewProgressResponse {
         private String chapterTitle;
         private Integer order;
         private Boolean read;
-        private Boolean scrolledToBottom;
+        private Boolean markedAsRead;
         private Integer timeSpentSec;
         private Integer commentCount;
         private Integer viewCount;

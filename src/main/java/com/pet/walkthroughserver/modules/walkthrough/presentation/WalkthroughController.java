@@ -166,6 +166,17 @@ public class WalkthroughController {
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
+    @DeleteMapping("/{walkthroughId}/chapter-view-events/{chapterId}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> unmarkChapter(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable UUID walkthroughId,
+            @PathVariable UUID chapterId) {
+        UUID userId = UUID.fromString(authUser.getUserId());
+        readProgressService.unmarkChapter(userId, walkthroughId, chapterId);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/{walkthroughId}/progress")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<DataResponse<ReadProgressResponse>> getReadProgress(
@@ -173,7 +184,9 @@ public class WalkthroughController {
             @PathVariable UUID walkthroughId) {
         UUID userId = UUID.fromString(authUser.getUserId());
         ReadProgressEntity entity = readProgressService.getReadProgress(userId, walkthroughId);
-        return ResponseEntity.ok(DataResponse.of(readProgressMapper.toResponse(entity)));
+        ReadProgressResponse response = readProgressMapper.toResponse(entity);
+        response.setReadChapterIds(readProgressService.getReadChapterIds(userId, walkthroughId));
+        return ResponseEntity.ok(DataResponse.of(response));
     }
 
     // ── Versioning endpoints ──

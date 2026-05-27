@@ -30,8 +30,8 @@ public class ChapterViewEventEntity extends BaseEntity {
     private Integer timeSpentSec = 0;
 
     @Builder.Default
-    @Column(name = "scrolled_to_bottom", nullable = false)
-    private Boolean scrolledToBottom = false;
+    @Column(name = "marked_as_read", nullable = false)
+    private Boolean markedAsRead = false;
 
     @Builder.Default
     @Column(name = "viewed_at", nullable = false)
