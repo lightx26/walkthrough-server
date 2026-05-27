@@ -11,7 +11,9 @@ public interface ReadProgressService {
 
     ChapterViewEventEntity recordChapterView(UUID userId, UUID walkthroughId, RecordChapterViewRequest request);
 
-    void unmarkChapter(UUID userId, UUID walkthroughId, UUID chapterId);
+    void markChapterRead(UUID userId, UUID walkthroughId, UUID chapterId);
+
+    void unmarkChapterRead(UUID userId, UUID walkthroughId, UUID chapterId);
 
     ReadProgressEntity getReadProgress(UUID userId, UUID walkthroughId);
 

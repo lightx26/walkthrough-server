@@ -1,9 +1,9 @@
 package com.pet.walkthroughserver.modules.walkthrough.presentation.dto;
 
+import java.util.UUID;
+
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
-
-import java.util.UUID;
 
 @Getter
 public class RecordChapterViewRequest {
@@ -12,6 +12,4 @@ public class RecordChapterViewRequest {
     private UUID chapterId;
 
     private Integer timeSpentSec;
-
-    private Boolean markedAsRead;
 }

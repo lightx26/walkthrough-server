@@ -10,9 +10,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.pet.walkthroughserver.configs.CacheNames;
-
 import com.pet.walkthroughserver.modules.walkthrough.exceptions.WalkthroughNotFoundException;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.RecordChapterViewRequest;
+import com.pet.walkthroughserver.modules.walkthrough.repository.ChapterReadMarkEntity;
+import com.pet.walkthroughserver.modules.walkthrough.repository.ChapterReadMarkRepository;
 import com.pet.walkthroughserver.modules.walkthrough.repository.ChapterViewEventEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.ChapterViewEventRepository;
 import com.pet.walkthroughserver.modules.walkthrough.repository.ReadProgressEntity;
@@ -28,6 +29,7 @@ public class ReadProgressServiceImpl implements ReadProgressService {
 
     private final WalkthroughRepository walkthroughRepository;
     private final ChapterViewEventRepository chapterViewEventRepository;
+    private final ChapterReadMarkRepository chapterReadMarkRepository;
     private final ReadProgressRepository readProgressRepository;
 
     @Override
@@ -37,50 +39,70 @@ public class ReadProgressServiceImpl implements ReadProgressService {
         WalkthroughEntity walkthrough = walkthroughRepository.findById(walkthroughId)
                 .orElseThrow(() -> new WalkthroughNotFoundException("Walkthrough not found"));
 
-        // Authors reviewing their own walkthrough should not generate progress records
+        // Authors don't generate progress for their own walkthrough
         if (walkthrough.getUserId().equals(userId)) {
             return null;
         }
 
-        // Check first visit BEFORE saving the new event
-        boolean isFirstVisit = !chapterViewEventRepository.existsByChapterIdAndUserId(
-                request.getChapterId(), userId);
+        int timeSpent = request.getTimeSpentSec() != null ? request.getTimeSpentSec() : 0;
 
         ChapterViewEventEntity event = ChapterViewEventEntity.builder()
                 .chapterId(request.getChapterId())
                 .userId(userId)
-                .timeSpentSec(request.getTimeSpentSec() != null ? request.getTimeSpentSec() : 0)
-                .markedAsRead(request.getMarkedAsRead() != null ? request.getMarkedAsRead() : false)
+                .timeSpentSec(timeSpent)
                 .viewedAt(Instant.now())
                 .build();
-
         ChapterViewEventEntity saved = chapterViewEventRepository.save(event);
 
-        // Upsert read_progress
-        ReadProgressEntity progress = readProgressRepository
-                .findByUserIdAndWalkthroughIdForUpdate(userId, walkthroughId)
-                .orElse(ReadProgressEntity.builder()
-                        .userId(userId)
-                        .walkthroughId(walkthroughId)
-                        .readChapters(0)
-                        .totalChapters(walkthrough.getChapters().size())
-                        .timeSpentSec(0)
-                        .readAt(Instant.now())
-                        .build());
-
+        ReadProgressEntity progress = loadOrInitProgress(userId, walkthrough);
         progress.setLastChapterId(request.getChapterId());
         progress.setTotalChapters(walkthrough.getChapters().size());
-        progress.setTimeSpentSec(progress.getTimeSpentSec() +
-                (request.getTimeSpentSec() != null ? request.getTimeSpentSec() : 0));
+        progress.setTimeSpentSec(progress.getTimeSpentSec() + timeSpent);
         progress.setReadAt(Instant.now());
-
-        if (isFirstVisit) {
-            progress.setReadChapters(progress.getReadChapters() + 1);
-        }
-
         readProgressRepository.save(progress);
 
         return saved;
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(value = CacheNames.WALKTHROUGH_PROGRESS, key = "#userId + ':' + #walkthroughId")
+    public void markChapterRead(UUID userId, UUID walkthroughId, UUID chapterId) {
+        WalkthroughEntity walkthrough = walkthroughRepository.findById(walkthroughId)
+                .orElseThrow(() -> new WalkthroughNotFoundException("Walkthrough not found"));
+
+        if (walkthrough.getUserId().equals(userId)) {
+            return;
+        }
+
+        if (!chapterReadMarkRepository.existsByUserIdAndChapterId(userId, chapterId)) {
+            chapterReadMarkRepository.save(ChapterReadMarkEntity.builder()
+                    .userId(userId)
+                    .walkthroughId(walkthroughId)
+                    .chapterId(chapterId)
+                    .markedAt(Instant.now())
+                    .build());
+        }
+
+        ReadProgressEntity progress = loadOrInitProgress(userId, walkthrough);
+        progress.setTotalChapters(walkthrough.getChapters().size());
+        progress.setReadChapters((int) chapterReadMarkRepository.countByUserIdAndWalkthroughId(userId, walkthroughId));
+        progress.setReadAt(Instant.now());
+        readProgressRepository.save(progress);
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(value = CacheNames.WALKTHROUGH_PROGRESS, key = "#userId + ':' + #walkthroughId")
+    public void unmarkChapterRead(UUID userId, UUID walkthroughId, UUID chapterId) {
+        chapterReadMarkRepository.deleteByUserIdAndChapterId(userId, chapterId);
+
+        readProgressRepository.findByUserIdAndWalkthroughIdForUpdate(userId, walkthroughId)
+                .ifPresent(progress -> {
+                    progress.setReadChapters(
+                            (int) chapterReadMarkRepository.countByUserIdAndWalkthroughId(userId, walkthroughId));
+                    readProgressRepository.save(progress);
+                });
     }
 
     @Override
@@ -89,32 +111,8 @@ public class ReadProgressServiceImpl implements ReadProgressService {
     }
 
     @Override
-    @Transactional
-    @CacheEvict(value = CacheNames.WALKTHROUGH_PROGRESS, key = "#userId + ':' + #walkthroughId")
-    public void unmarkChapter(UUID userId, UUID walkthroughId, UUID chapterId) {
-        boolean hadEvents = chapterViewEventRepository.existsByChapterIdAndUserId(chapterId, userId);
-        chapterViewEventRepository.deleteByChapterIdAndUserId(chapterId, userId);
-
-        if (hadEvents) {
-            readProgressRepository.findByUserIdAndWalkthroughIdForUpdate(userId, walkthroughId)
-                    .ifPresent(progress -> {
-                        progress.setReadChapters(Math.max(0, progress.getReadChapters() - 1));
-                        readProgressRepository.save(progress);
-                    });
-        }
-    }
-
-    @Override
     public List<UUID> getReadChapterIds(UUID userId, UUID walkthroughId) {
-        return walkthroughRepository.findById(walkthroughId)
-                .map(wt -> {
-                    List<UUID> chapterIds = wt.getChapters().stream()
-                            .map(ch -> ch.getId())
-                            .toList();
-                    if (chapterIds.isEmpty()) return List.<UUID>of();
-                    return chapterViewEventRepository.findReadChapterIdsByUserIdAndChapterIds(userId, chapterIds);
-                })
-                .orElse(List.of());
+        return chapterReadMarkRepository.findMarkedChapterIds(userId, walkthroughId);
     }
 
     @Override
@@ -127,6 +125,19 @@ public class ReadProgressServiceImpl implements ReadProgressService {
                         .walkthroughId(walkthroughId)
                         .readChapters(0)
                         .totalChapters(0)
+                        .timeSpentSec(0)
+                        .readAt(Instant.now())
+                        .build());
+    }
+
+    private ReadProgressEntity loadOrInitProgress(UUID userId, WalkthroughEntity walkthrough) {
+        return readProgressRepository
+                .findByUserIdAndWalkthroughIdForUpdate(userId, walkthrough.getId())
+                .orElse(ReadProgressEntity.builder()
+                        .userId(userId)
+                        .walkthroughId(walkthrough.getId())
+                        .readChapters(0)
+                        .totalChapters(walkthrough.getChapters().size())
                         .timeSpentSec(0)
                         .readAt(Instant.now())
                         .build());

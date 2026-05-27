@@ -166,14 +166,25 @@ public class WalkthroughController {
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
-    @DeleteMapping("/{walkthroughId}/chapter-view-events/{chapterId}")
+    @PostMapping("/{walkthroughId}/chapters/{chapterId}/read")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<Void> unmarkChapter(
+    public ResponseEntity<Void> markChapterRead(
             @AuthenticationPrincipal AuthUser authUser,
             @PathVariable UUID walkthroughId,
             @PathVariable UUID chapterId) {
         UUID userId = UUID.fromString(authUser.getUserId());
-        readProgressService.unmarkChapter(userId, walkthroughId, chapterId);
+        readProgressService.markChapterRead(userId, walkthroughId, chapterId);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    @DeleteMapping("/{walkthroughId}/chapters/{chapterId}/read")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> unmarkChapterRead(
+            @AuthenticationPrincipal AuthUser authUser,
+            @PathVariable UUID walkthroughId,
+            @PathVariable UUID chapterId) {
+        UUID userId = UUID.fromString(authUser.getUserId());
+        readProgressService.unmarkChapterRead(userId, walkthroughId, chapterId);
         return ResponseEntity.noContent().build();
     }
 
