@@ -4,11 +4,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import com.pet.walkthroughserver.configs.CacheNames;
 import com.pet.walkthroughserver.modules.comment.business.events.CommentCreatedEvent;
 import com.pet.walkthroughserver.modules.comment.business.events.CommentEventProducer;
 import com.pet.walkthroughserver.modules.comment.exceptions.CommentNotFoundException;
@@ -30,6 +32,7 @@ public class CommentServiceImpl implements CommentService {
 
     @Override
     @Transactional
+    @CacheEvict(value = CacheNames.WALKTHROUGH_COMMENT_COUNTS, allEntries = true)
     public CommentEntity createComment(UUID userId, UUID walkthroughId, CreateCommentRequest request) {
         walkthroughRepository.findById(walkthroughId)
                 .orElseThrow(() -> new WalkthroughNotFoundException("Walkthrough not found"));
@@ -96,6 +99,7 @@ public class CommentServiceImpl implements CommentService {
 
     @Override
     @Transactional
+    @CacheEvict(value = CacheNames.WALKTHROUGH_COMMENT_COUNTS, allEntries = true)
     public void deleteComment(UUID userId, UUID commentId) {
         CommentEntity comment = commentRepository.findByIdAndUserId(commentId, userId)
                 .orElseThrow(() -> new CommentNotFoundException("Comment not found"));
