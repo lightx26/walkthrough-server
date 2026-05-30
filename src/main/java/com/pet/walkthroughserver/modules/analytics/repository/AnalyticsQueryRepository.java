@@ -101,6 +101,30 @@ public class AnalyticsQueryRepository {
     }
 
     /**
+     * Chapter weights for skim-detection: file count + total patch line count.
+     * Columns: chapter_id, file_count, patch_line_count
+     */
+    @SuppressWarnings("unchecked")
+    public List<Tuple> findChapterWeights(UUID walkthroughId) {
+        return em.createNativeQuery("""
+                SELECT c.id AS chapter_id,
+                       COUNT(wf.id)::int AS file_count,
+                       COALESCE(SUM(
+                           CASE WHEN wf.raw_patch IS NULL OR wf.raw_patch = ''
+                                THEN 0
+                                ELSE (LENGTH(wf.raw_patch) - LENGTH(REPLACE(wf.raw_patch, E'\\n', '')))
+                           END
+                       ), 0)::int AS patch_line_count
+                FROM walkthrough.walkthrough_chapters c
+                LEFT JOIN walkthrough.walkthrough_files wf ON wf.chapter_id = c.id
+                WHERE c.walkthrough_id = :walkthroughId
+                GROUP BY c.id
+                """, Tuple.class)
+                .setParameter("walkthroughId", walkthroughId)
+                .getResultList();
+    }
+
+    /**
      * Total comment counts grouped by chapter for a walkthrough.
      * Columns: chapter_id, total_comments
      */

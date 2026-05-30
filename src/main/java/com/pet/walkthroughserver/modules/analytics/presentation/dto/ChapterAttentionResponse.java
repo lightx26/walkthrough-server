@@ -21,6 +21,7 @@ public class ChapterAttentionResponse {
         private Integer order;
         private Integer totalComments;
         private Boolean allRead;
+        private Integer possiblySkimmedCount;
         private List<AttentionEntry> attention;
     }
 
@@ -33,6 +34,7 @@ public class ChapterAttentionResponse {
         private String avatarUrl;
         private Integer timeSpentSec;
         private Boolean markedAsRead;
+        private Boolean possiblySkimmed;
         private Integer commentCount;
         private Integer viewCount;
     }

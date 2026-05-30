@@ -46,6 +46,18 @@ public class AnalyticsServiceImpl implements AnalyticsService {
     private final ReadProgressRepository readProgressRepository;
     private final CommentRepository commentRepository;
 
+    // Skim-detection heuristic: expected read time ~= 5s/file + 1s/patch-line, floored at 20s.
+    // A reader who marked-as-read in under 30% of that is flagged as possibly skimmed.
+    private static final int SEC_PER_FILE = 5;
+    private static final int SEC_PER_PATCH_LINE = 1;
+    private static final int MIN_EXPECTED_READ_SEC = 20;
+    private static final double SKIM_THRESHOLD_RATIO = 0.3;
+
+    private static int expectedReadSec(int fileCount, int patchLineCount) {
+        return Math.max(MIN_EXPECTED_READ_SEC,
+                fileCount * SEC_PER_FILE + patchLineCount * SEC_PER_PATCH_LINE);
+    }
+
     // ── 6.1 Reading matrix ──
 
     @Override
@@ -128,25 +140,38 @@ public class AnalyticsServiceImpl implements AnalyticsService {
             commentsByChapter.put((UUID) t.get("chapter_id"), toInt(t.get("total_comments")));
         }
 
+        Map<UUID, Integer> expectedSecByChapter = new HashMap<>();
+        for (Tuple t : analyticsRepo.findChapterWeights(walkthroughId)) {
+            int fileCount = toInt(t.get("file_count"));
+            int patchLines = toInt(t.get("patch_line_count"));
+            expectedSecByChapter.put((UUID) t.get("chapter_id"), expectedReadSec(fileCount, patchLines));
+        }
+
         int reviewerCount = userMeta.size();
 
         List<ChapterAttentionResponse.Chapter> chapterDtos = new ArrayList<>();
         for (ChapterEntity c : chapters) {
             List<Map.Entry<UUID, Tuple>> entries = byChapter.getOrDefault(c.getId(), List.of());
+            int expectedSec = expectedSecByChapter.getOrDefault(c.getId(), MIN_EXPECTED_READ_SEC);
             List<AttentionEntry> attention = new ArrayList<>();
             int markedCount = 0;
+            int skimmedCount = 0;
             for (var e : entries) {
                 Tuple s = e.getValue();
                 Tuple u = userMeta.get(e.getKey());
                 boolean marked = toBool(s.get("marked_as_read"));
+                int timeSpent = toInt(s.get("time_spent_sec"));
+                boolean skimmed = marked && timeSpent < expectedSec * SKIM_THRESHOLD_RATIO;
                 if (marked) markedCount++;
+                if (skimmed) skimmedCount++;
                 attention.add(AttentionEntry.builder()
                         .userId(e.getKey())
                         .username(u != null ? (String) u.get("username") : null)
                         .displayName(u != null ? (String) u.get("display_name") : null)
                         .avatarUrl(u != null ? (String) u.get("avatar_url") : null)
-                        .timeSpentSec(toInt(s.get("time_spent_sec")))
+                        .timeSpentSec(timeSpent)
                         .markedAsRead(marked)
+                        .possiblySkimmed(skimmed)
                         .commentCount(toInt(s.get("comment_count")))
                         .viewCount(toInt(s.get("view_count")))
                         .build());
@@ -158,6 +183,7 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                     .order(c.getSortOrder())
                     .totalComments(commentsByChapter.getOrDefault(c.getId(), 0))
                     .allRead(reviewerCount > 0 && markedCount >= reviewerCount)
+                    .possiblySkimmedCount(skimmedCount)
                     .attention(attention)
                     .build());
         }
