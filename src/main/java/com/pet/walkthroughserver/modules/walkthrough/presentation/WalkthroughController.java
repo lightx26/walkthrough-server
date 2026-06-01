@@ -1,8 +1,10 @@
 package com.pet.walkthroughserver.modules.walkthrough.presentation;
 
 import java.util.List;
-import java.util.Objects;
+import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -33,10 +35,11 @@ import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.VersionDif
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.WalkthroughResponse;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.WalkthroughSummaryResponse;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.assembler.VersionDiffAssembler;
-import com.pet.walkthroughserver.modules.walkthrough.presentation.mapper.ReadProgressPresentationMapper;
+import com.pet.walkthroughserver.modules.walkthrough.presentation.assembler.WalkthroughAssembler;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.mapper.WalkthroughPresentationMapper;
 import com.pet.walkthroughserver.modules.walkthrough.repository.ReadProgressEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughEntity;
+import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughRepository;
 import com.pet.walkthroughserver.security.AuthUser;
 
 import jakarta.validation.Valid;
@@ -51,8 +54,9 @@ public class WalkthroughController {
     private final ReadProgressService readProgressService;
     private final WalkthroughVersionService walkthroughVersionService;
     private final WalkthroughPresentationMapper walkthroughMapper;
-    private final ReadProgressPresentationMapper readProgressMapper;
+    private final WalkthroughAssembler walkthroughAssembler;
     private final VersionDiffAssembler versionDiffAssembler;
+    private final WalkthroughRepository walkthroughRepository;
 
     @PostMapping
     @PreAuthorize("isAuthenticated()")
@@ -74,10 +78,7 @@ public class WalkthroughController {
             @RequestParam Integer prNumber) {
         UUID userId = UUID.fromString(authUser.getUserId());
         List<WalkthroughEntity> entities = walkthroughService.listByPr(owner, repo, prNumber, userId);
-        List<WalkthroughSummaryResponse> summaries = walkthroughMapper.toSummaryResponseList(entities);
-        List<UUID> ids = entities.stream().map(WalkthroughEntity::getId).toList();
-        var commentCounts = walkthroughService.getCommentCounts(ids);
-        summaries.forEach(s -> s.setCommentCount(commentCounts.getOrDefault(s.getId(), 0L).intValue()));
+        List<WalkthroughSummaryResponse> summaries = walkthroughAssembler.toSummaryWithComments(entities);
         return ResponseEntity.ok(DataResponse.of(ListData.of(summaries)));
     }
 
@@ -97,27 +98,27 @@ public class WalkthroughController {
             @AuthenticationPrincipal AuthUser authUser) {
         UUID userId = UUID.fromString(authUser.getUserId());
         List<ReadProgressEntity> progressList = readProgressService.listRecentlyReviewed(userId);
+        List<UUID> walkthroughIds = progressList.stream()
+                .map(ReadProgressEntity::getWalkthroughId).toList();
+        Map<UUID, WalkthroughEntity> walkthroughMap = walkthroughRepository.findAllById(walkthroughIds)
+                .stream().collect(Collectors.toMap(WalkthroughEntity::getId, Function.identity()));
         List<RecentlyReviewedResponse> responses = progressList.stream()
+                .filter(p -> walkthroughMap.containsKey(p.getWalkthroughId()))
                 .map(progress -> {
-                    try {
-                        WalkthroughEntity wt = walkthroughService.getById(progress.getWalkthroughId(), userId);
-                        return RecentlyReviewedResponse.builder()
-                                .walkthroughId(wt.getId())
-                                .title(wt.getTitle())
-                                .owner(wt.getOwner())
-                                .repo(wt.getRepo())
-                                .prNumber(wt.getPrNumber())
-                                .status(wt.getStatus())
-                                .readChapters(progress.getReadChapters())
-                                .totalChapters(progress.getTotalChapters())
-                                .timeSpentSec(progress.getTimeSpentSec())
-                                .lastReadAt(progress.getReadAt())
-                                .build();
-                    } catch (Exception e) {
-                        return null;
-                    }
+                    WalkthroughEntity wt = walkthroughMap.get(progress.getWalkthroughId());
+                    return RecentlyReviewedResponse.builder()
+                            .walkthroughId(wt.getId())
+                            .title(wt.getTitle())
+                            .owner(wt.getOwner())
+                            .repo(wt.getRepo())
+                            .prNumber(wt.getPrNumber())
+                            .status(wt.getStatus())
+                            .readChapters(progress.getReadChapters())
+                            .totalChapters(progress.getTotalChapters())
+                            .timeSpentSec(progress.getTimeSpentSec())
+                            .lastReadAt(progress.getReadAt())
+                            .build();
                 })
-                .filter(Objects::nonNull)
                 .toList();
         return ResponseEntity.ok(DataResponse.of(ListData.of(responses)));
     }
@@ -197,8 +198,7 @@ public class WalkthroughController {
             @PathVariable UUID walkthroughId) {
         UUID userId = UUID.fromString(authUser.getUserId());
         ReadProgressEntity entity = readProgressService.getReadProgress(userId, walkthroughId);
-        ReadProgressResponse response = readProgressMapper.toResponse(entity);
-        response.setReadChapterIds(readProgressService.getReadChapterIds(userId, walkthroughId));
+        ReadProgressResponse response = walkthroughAssembler.toProgressResponse(userId, walkthroughId, entity);
         return ResponseEntity.ok(DataResponse.of(response));
     }
 
