@@ -1,10 +1,15 @@
 package com.pet.walkthroughserver.modules.walkthrough.business.events;
 
-import java.time.Instant;
 import java.util.UUID;
 
-public sealed interface WalkthroughEvent
+import com.pet.walkthroughserver.modules._shared.messaging.DomainEvent;
+
+public sealed interface WalkthroughEvent extends DomainEvent
         permits WalkthroughCreatedEvent, WalkthroughUpdatedEvent, WalkthroughDeletedEvent {
     UUID walkthroughId();
-    Instant occurredAt();
+
+    @Override
+    default UUID aggregateId() {
+        return walkthroughId();
+    }
 }

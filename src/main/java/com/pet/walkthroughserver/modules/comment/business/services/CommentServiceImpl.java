@@ -11,8 +11,8 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.pet.walkthroughserver.configs.CacheNames;
+import com.pet.walkthroughserver.modules._shared.messaging.DomainEventPublisher;
 import com.pet.walkthroughserver.modules.comment.business.events.CommentCreatedEvent;
-import com.pet.walkthroughserver.modules.comment.business.events.CommentEventProducer;
 import com.pet.walkthroughserver.modules.comment.exceptions.CommentNotFoundException;
 import com.pet.walkthroughserver.modules.comment.presentation.dto.CreateCommentRequest;
 import com.pet.walkthroughserver.modules.comment.repository.CommentEntity;
@@ -29,7 +29,7 @@ public class CommentServiceImpl implements CommentService {
 
     private final CommentRepository commentRepository;
     private final WalkthroughRepository walkthroughRepository;
-    private final CommentEventProducer commentEventProducer;
+    private final DomainEventPublisher eventPublisher;
 
     @Override
     @Transactional
@@ -51,19 +51,20 @@ public class CommentServiceImpl implements CommentService {
 
         CommentEntity saved = commentRepository.save(comment);
 
-        CommentCreatedEvent event = CommentCreatedEvent.builder()
-                .commentId(saved.getId())
-                .walkthroughId(walkthroughId)
-                .userId(userId)
-                .content(request.getContent())
-                .walkthroughFileId(request.getWalkthroughFileId())
-                .diffPosition(request.getDiffPosition())
-                .build();
+        CommentCreatedEvent event = new CommentCreatedEvent(
+                saved.getId(),
+                walkthroughId,
+                userId,
+                request.getContent(),
+                request.getWalkthroughFileId(),
+                request.getDiffPosition(),
+                java.time.Instant.now()
+        );
 
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                commentEventProducer.publish(event);
+                eventPublisher.publish(event);
             }
         });
 

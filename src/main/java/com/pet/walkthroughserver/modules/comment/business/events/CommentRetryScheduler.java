@@ -1,5 +1,6 @@
 package com.pet.walkthroughserver.modules.comment.business.events;
 
+import com.pet.walkthroughserver.modules._shared.messaging.DomainEventPublisher;
 import com.pet.walkthroughserver.modules.comment.repository.CommentEntity;
 import com.pet.walkthroughserver.modules.comment.repository.CommentRepository;
 import com.pet.walkthroughserver.modules.comment.repository.SyncStatus;
@@ -8,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -22,7 +24,7 @@ public class CommentRetryScheduler {
     private static final int MAX_RETRIES = 3;
 
     private final CommentRepository commentRepository;
-    private final CommentEventProducer commentEventProducer;
+    private final DomainEventPublisher eventPublisher;
 
     @Scheduled(fixedDelay = 60_000)
     public void retryFailedComments() {
@@ -47,14 +49,15 @@ public class CommentRetryScheduler {
             comment.setSyncStatus(SyncStatus.PENDING);
             commentRepository.save(comment);
 
-            commentEventProducer.publish(CommentCreatedEvent.builder()
-                    .commentId(comment.getId())
-                    .walkthroughId(comment.getWalkthroughId())
-                    .userId(comment.getUserId())
-                    .content(comment.getContent())
-                    .walkthroughFileId(comment.getWalkthroughFileId())
-                    .diffPosition(comment.getDiffPosition())
-                    .build());
+            eventPublisher.publish(new CommentCreatedEvent(
+                    comment.getId(),
+                    comment.getWalkthroughId(),
+                    comment.getUserId(),
+                    comment.getContent(),
+                    comment.getWalkthroughFileId(),
+                    comment.getDiffPosition(),
+                    Instant.now()
+            ));
 
             log.info("Requeued comment {} for retry (attempt {})", comment.getId(), comment.getRetryCount());
         }

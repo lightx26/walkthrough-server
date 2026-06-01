@@ -1,15 +1,11 @@
-package com.pet.walkthroughserver.modules.profile.business.events;
+package com.pet.walkthroughserver.modules.profile.business.sync;
 
-import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 
-import com.pet.walkthroughserver.configs.RabbitMQConfig;
-import com.pet.walkthroughserver.modules._shared.infra.messaging.WalkthroughEventMessage;
 import com.pet.walkthroughserver.modules.profile.repository.ActivityEntryEntity;
 import com.pet.walkthroughserver.modules.profile.repository.ActivityEntryRepository;
 import com.pet.walkthroughserver.modules.profile.repository.ActivityEventType;
@@ -24,31 +20,31 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class ActivitySyncConsumer {
+public class ActivitySyncHandlerImpl implements ActivitySyncHandler {
 
     private final ActivityEntryRepository activityEntryRepository;
     private final WalkthroughRepository walkthroughRepository;
 
-    @RabbitListener(queues = RabbitMQConfig.ACTIVITY_SYNC_QUEUE)
-    public void handleWalkthroughEvent(WalkthroughEventMessage message) {
+    @Override
+    public void handle(ActivitySyncCommand command) {
         log.info("Activity sync: processing event {} for walkthrough {}",
-                message.getEventType(), message.getWalkthroughId());
+                command.eventType(), command.walkthroughId());
 
-        Optional<WalkthroughEntity> walkthroughOpt = walkthroughRepository.findById(message.getWalkthroughId());
-        if (walkthroughOpt.isEmpty() && !"WALKTHROUGH_DELETED".equals(message.getEventType())) {
-            log.warn("Walkthrough {} not found, skipping activity entry", message.getWalkthroughId());
+        Optional<WalkthroughEntity> walkthroughOpt = walkthroughRepository.findById(command.walkthroughId());
+        if (walkthroughOpt.isEmpty() && !"WALKTHROUGH_DELETED".equals(command.eventType())) {
+            log.warn("Walkthrough {} not found, skipping activity entry", command.walkthroughId());
             return;
         }
 
-        switch (message.getEventType()) {
-            case "WALKTHROUGH_CREATED" -> handleWalkthroughCreated(walkthroughOpt.get(), message);
-            case "WALKTHROUGH_UPDATED" -> handleWalkthroughUpdated(walkthroughOpt.get(), message);
+        switch (command.eventType()) {
+            case "WALKTHROUGH_CREATED" -> handleWalkthroughCreated(walkthroughOpt.get(), command);
+            case "WALKTHROUGH_UPDATED" -> handleWalkthroughUpdated(walkthroughOpt.get(), command);
             case "WALKTHROUGH_DELETED" -> log.debug("Walkthrough deleted, no activity entry needed");
-            default -> log.warn("Unknown event type: {}", message.getEventType());
+            default -> log.warn("Unknown event type: {}", command.eventType());
         }
     }
 
-    private void handleWalkthroughCreated(WalkthroughEntity walkthrough, WalkthroughEventMessage message) {
+    private void handleWalkthroughCreated(WalkthroughEntity walkthrough, ActivitySyncCommand command) {
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("title", walkthrough.getTitle());
         metadata.put("status", walkthrough.getStatus().name());
@@ -61,7 +57,7 @@ public class ActivitySyncConsumer {
         ActivityEntryEntity entry = ActivityEntryEntity.builder()
                 .userId(walkthrough.getUserId())
                 .eventType(ActivityEventType.WALKTHROUGH_CREATED)
-                .occurredAt(Instant.parse(message.getOccurredAt()))
+                .occurredAt(command.occurredAt())
                 .walkthroughId(walkthrough.getId())
                 .metadata(metadata)
                 .visibility(visibility)
@@ -70,8 +66,7 @@ public class ActivitySyncConsumer {
         activityEntryRepository.save(entry);
     }
 
-    private void handleWalkthroughUpdated(WalkthroughEntity walkthrough, WalkthroughEventMessage message) {
-        // Create a PUBLISHED event if the walkthrough is now published
+    private void handleWalkthroughUpdated(WalkthroughEntity walkthrough, ActivitySyncCommand command) {
         if (walkthrough.getStatus() == WalkthroughStatus.PUBLISHED) {
             Map<String, Object> metadata = new HashMap<>();
             metadata.put("title", walkthrough.getTitle());
@@ -81,7 +76,7 @@ public class ActivitySyncConsumer {
             ActivityEntryEntity entry = ActivityEntryEntity.builder()
                     .userId(walkthrough.getUserId())
                     .eventType(ActivityEventType.WALKTHROUGH_PUBLISHED)
-                    .occurredAt(Instant.parse(message.getOccurredAt()))
+                    .occurredAt(command.occurredAt())
                     .walkthroughId(walkthrough.getId())
                     .metadata(metadata)
                     .visibility(ActivityVisibility.PUBLIC)

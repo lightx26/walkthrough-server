@@ -18,11 +18,12 @@ import com.pet.walkthroughserver.modules._shared.repository.Repositories;
 import com.pet.walkthroughserver.modules._shared.security.OwnershipGuard;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequest;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequestFile;
+import com.pet.walkthroughserver.modules._shared.messaging.DomainEvent;
+import com.pet.walkthroughserver.modules._shared.messaging.DomainEventPublisher;
 import com.pet.walkthroughserver.modules.comment.repository.CommentRepository;
 import com.pet.walkthroughserver.modules.githubpr.business.services.GitHubPrService;
 import com.pet.walkthroughserver.modules.walkthrough.business.events.WalkthroughCreatedEvent;
 import com.pet.walkthroughserver.modules.walkthrough.business.events.WalkthroughDeletedEvent;
-import com.pet.walkthroughserver.modules.walkthrough.business.events.WalkthroughEventPublisher;
 import com.pet.walkthroughserver.modules.walkthrough.business.events.WalkthroughUpdatedEvent;
 import com.pet.walkthroughserver.modules.walkthrough.business.cache.WalkthroughCacheEvictor;
 import com.pet.walkthroughserver.modules.walkthrough.business.util.WalkthroughSnapshotSerializer;
@@ -51,7 +52,7 @@ public class WalkthroughServiceImpl implements WalkthroughService {
     private final WalkthroughRepository walkthroughRepository;
     private final WalkthroughSnapshotRepository snapshotRepository;
     private final GitHubPrService gitHubPrService;
-    private final WalkthroughEventPublisher walkthroughEventPublisher;
+    private final DomainEventPublisher eventPublisher;
     private final CommentRepository commentRepository;
     private final WalkthroughCacheEvictor cacheEvictor;
 
@@ -313,11 +314,11 @@ public class WalkthroughServiceImpl implements WalkthroughService {
         }
     }
 
-    private void publishAfterCommit(com.pet.walkthroughserver.modules.walkthrough.business.events.WalkthroughEvent event) {
+    private void publishAfterCommit(DomainEvent event) {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                walkthroughEventPublisher.publish(event);
+                eventPublisher.publish(event);
             }
         });
     }

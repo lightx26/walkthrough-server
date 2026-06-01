@@ -1,15 +1,13 @@
-package com.pet.walkthroughserver.modules.search.infra;
+package com.pet.walkthroughserver.modules.search.business.sync;
 
 import java.util.UUID;
 
-import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.pet.walkthroughserver.configs.RabbitMQConfig;
-import com.pet.walkthroughserver.modules._shared.infra.messaging.WalkthroughEventMessage;
 import com.pet.walkthroughserver.modules.search.business.models.WalkthroughDocument;
 import com.pet.walkthroughserver.modules.search.business.services.WalkthroughIndexService;
+import com.pet.walkthroughserver.modules.search.infra.WalkthroughDocumentMapper;
 import com.pet.walkthroughserver.modules.user.business.services.UserService;
 import com.pet.walkthroughserver.modules.user.repository.UserEntity;
 import com.pet.walkthroughserver.modules.walkthrough.exceptions.WalkthroughNotFoundException;
@@ -22,30 +20,32 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class WalkthroughSearchSyncConsumer {
+public class SearchSyncHandlerImpl implements SearchSyncHandler {
 
     private final WalkthroughIndexService indexService;
     private final WalkthroughRepository walkthroughRepository;
     private final UserService userService;
     private final WalkthroughDocumentMapper documentMapper;
 
-    @RabbitListener(queues = RabbitMQConfig.WALKTHROUGH_SEARCH_SYNC_QUEUE)
+    @Override
     @Transactional(readOnly = true)
-    public void handleWalkthroughEvent(WalkthroughEventMessage message) {
-        log.info("Received {} for walkthrough {}", message.getEventType(), message.getWalkthroughId());
+    public void handle(SearchSyncCommand command) {
+        log.info("Search sync: processing {} for walkthrough {}",
+                command.eventType(), command.walkthroughId());
 
         try {
-            switch (message.getEventType()) {
-                case "WALKTHROUGH_CREATED", "WALKTHROUGH_UPDATED" -> indexWalkthrough(message.getWalkthroughId());
-                case "WALKTHROUGH_DELETED" -> indexService.delete(message.getWalkthroughId());
-                default -> log.warn("Unknown event type: {}", message.getEventType());
+            switch (command.eventType()) {
+                case "WALKTHROUGH_CREATED", "WALKTHROUGH_UPDATED" -> indexWalkthrough(command.walkthroughId());
+                case "WALKTHROUGH_DELETED" -> indexService.delete(command.walkthroughId());
+                default -> log.warn("Unknown event type: {}", command.eventType());
             }
         } catch (WalkthroughNotFoundException e) {
-            // Walkthrough already deleted, ACK the message (idempotent)
-            log.info("Walkthrough {} not found during indexing, skipping (already deleted)", message.getWalkthroughId());
+            log.info("Walkthrough {} not found during indexing, skipping (already deleted)",
+                    command.walkthroughId());
         } catch (Exception e) {
-            log.error("Failed to process event {} for walkthrough {}", message.getEventType(), message.getWalkthroughId(), e);
-            throw e; // Will be retried / sent to DLQ
+            log.error("Failed to process event {} for walkthrough {}",
+                    command.eventType(), command.walkthroughId(), e);
+            throw e;
         }
     }
 

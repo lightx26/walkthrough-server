@@ -1,23 +1,27 @@
 package com.pet.walkthroughserver.modules.comment.business.events;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-
-import java.io.Serializable;
+import java.time.Instant;
 import java.util.UUID;
 
-@Getter
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class CommentCreatedEvent implements Serializable {
+import com.pet.walkthroughserver.modules._shared.messaging.DomainEvent;
 
-    private UUID commentId;
-    private UUID walkthroughId;
-    private UUID userId;
-    private String content;
-    private UUID walkthroughFileId;
-    private Integer diffPosition;
+public record CommentCreatedEvent(
+        UUID commentId,
+        UUID walkthroughId,
+        UUID userId,
+        String content,
+        UUID walkthroughFileId,
+        Integer diffPosition,
+        Instant occurredAt
+) implements DomainEvent {
+
+    @Override
+    public UUID aggregateId() {
+        return commentId;
+    }
+
+    @Override
+    public String eventType() {
+        return "COMMENT_CREATED";
+    }
 }

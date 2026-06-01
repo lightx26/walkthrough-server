@@ -18,8 +18,8 @@ import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequ
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequestFile;
 import com.pet.walkthroughserver.modules._shared.repository.Repositories;
 import com.pet.walkthroughserver.modules._shared.security.OwnershipGuard;
+import com.pet.walkthroughserver.modules._shared.messaging.DomainEventPublisher;
 import com.pet.walkthroughserver.modules.githubpr.business.services.GitHubPrService;
-import com.pet.walkthroughserver.modules.walkthrough.business.events.WalkthroughEventPublisher;
 import com.pet.walkthroughserver.modules.walkthrough.business.events.WalkthroughUpdatedEvent;
 import com.pet.walkthroughserver.modules.walkthrough.business.util.DiffLineMapper;
 import com.pet.walkthroughserver.modules.walkthrough.business.util.WalkthroughSnapshotSerializer;
@@ -48,7 +48,7 @@ public class WalkthroughVersionServiceImpl implements WalkthroughVersionService 
     private final WalkthroughRepository walkthroughRepository;
     private final WalkthroughSnapshotRepository snapshotRepository;
     private final GitHubPrService gitHubPrService;
-    private final WalkthroughEventPublisher walkthroughEventPublisher;
+    private final DomainEventPublisher eventPublisher;
 
     // ── 5.1 Detect stale walkthrough ──
 
@@ -394,7 +394,7 @@ public class WalkthroughVersionServiceImpl implements WalkthroughVersionService 
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                walkthroughEventPublisher.publish(event);
+                eventPublisher.publish(event);
             }
         });
     }
