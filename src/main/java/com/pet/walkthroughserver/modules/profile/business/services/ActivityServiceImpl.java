@@ -8,10 +8,10 @@ import com.pet.walkthroughserver.modules.user.repository.UserEntity;
 import com.pet.walkthroughserver.modules.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -27,18 +27,12 @@ public class ActivityServiceImpl implements ActivityService {
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
 
         boolean isSelf = viewerId != null && viewerId.equals(user.getId());
-        PageRequest pageable = PageRequest.of(0, limit + 1);
+        PageRequest pageable = PageRequest.of(0, limit);
 
-        List<ActivityEntryEntity> entries;
-        if (isSelf) {
-            entries = activityEntryRepository.findByUserIdBeforeTime(user.getId(), before, pageable);
-        } else {
-            entries = activityEntryRepository.findPublicByUserIdBeforeTime(user.getId(), before, pageable);
-        }
+        Slice<ActivityEntryEntity> slice = isSelf
+                ? activityEntryRepository.findByUserIdBeforeTime(user.getId(), before, pageable)
+                : activityEntryRepository.findPublicByUserIdBeforeTime(user.getId(), before, pageable);
 
-        boolean hasNext = entries.size() > limit;
-        List<ActivityEntryEntity> resultEntries = hasNext ? entries.subList(0, limit) : entries;
-
-        return SliceData.of(resultEntries, hasNext);
+        return SliceData.of(slice.getContent(), slice.hasNext());
     }
 }
