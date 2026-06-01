@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.pet.walkthroughserver.interceptors.DataResponse;
 import com.pet.walkthroughserver.modules._shared.dto.ListData;
 import com.pet.walkthroughserver.modules.analytics.business.services.AnalyticsService;
+import com.pet.walkthroughserver.modules.analytics.presentation.assembler.AnalyticsAssembler;
 import com.pet.walkthroughserver.modules.analytics.presentation.dto.AuthorWalkthroughSummaryResponse;
 import com.pet.walkthroughserver.modules.analytics.presentation.dto.ChapterAttentionResponse;
 import com.pet.walkthroughserver.modules.analytics.presentation.dto.RepoMetricsResponse;
@@ -32,6 +33,7 @@ import lombok.RequiredArgsConstructor;
 public class AnalyticsController {
 
     private final AnalyticsService analyticsService;
+    private final AnalyticsAssembler analyticsAssembler;
 
     // 6.1 — Per-reviewer reading matrix
     @GetMapping("/walkthroughs/{id}/review-progress")
@@ -40,7 +42,9 @@ public class AnalyticsController {
             @AuthenticationPrincipal AuthUser authUser,
             @PathVariable UUID id) {
         UUID userId = UUID.fromString(authUser.getUserId());
-        return ResponseEntity.ok(DataResponse.of(analyticsService.getReviewProgress(userId, id)));
+        ReviewProgressResponse response = analyticsAssembler.toResponse(
+                analyticsService.getReviewProgress(userId, id));
+        return ResponseEntity.ok(DataResponse.of(response));
     }
 
     // 6.2 — Chapter attention
@@ -50,7 +54,9 @@ public class AnalyticsController {
             @AuthenticationPrincipal AuthUser authUser,
             @PathVariable UUID id) {
         UUID userId = UUID.fromString(authUser.getUserId());
-        return ResponseEntity.ok(DataResponse.of(analyticsService.getChapterAttention(userId, id)));
+        ChapterAttentionResponse response = analyticsAssembler.toResponse(
+                analyticsService.getChapterAttention(userId, id));
+        return ResponseEntity.ok(DataResponse.of(response));
     }
 
     // 6.3 — Unread summary
@@ -60,7 +66,9 @@ public class AnalyticsController {
             @AuthenticationPrincipal AuthUser authUser,
             @PathVariable UUID id) {
         UUID userId = UUID.fromString(authUser.getUserId());
-        return ResponseEntity.ok(DataResponse.of(analyticsService.getUnreadSummary(userId, id)));
+        UnreadSummaryResponse response = analyticsAssembler.toResponse(
+                analyticsService.getUnreadSummary(userId, id));
+        return ResponseEntity.ok(DataResponse.of(response));
     }
 
     // 6.4 — Repo-level longitudinal metrics
@@ -73,7 +81,9 @@ public class AnalyticsController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
         UUID userId = UUID.fromString(authUser.getUserId());
-        return ResponseEntity.ok(DataResponse.of(analyticsService.getRepoMetrics(userId, owner, repo, from, to)));
+        RepoMetricsResponse response = analyticsAssembler.toResponse(
+                analyticsService.getRepoMetrics(userId, owner, repo, from, to));
+        return ResponseEntity.ok(DataResponse.of(response));
     }
 
     // Author summary list (feeds the Author view in the analytics index page)
@@ -84,7 +94,8 @@ public class AnalyticsController {
             @RequestParam(required = false) String owner,
             @RequestParam(required = false) String repo) {
         UUID userId = UUID.fromString(authUser.getUserId());
-        List<AuthorWalkthroughSummaryResponse> list = analyticsService.getAuthorSummary(userId, owner, repo);
+        List<AuthorWalkthroughSummaryResponse> list = analyticsAssembler.toResponseList(
+                analyticsService.getAuthorSummary(userId, owner, repo));
         return ResponseEntity.ok(DataResponse.of(ListData.of(list)));
     }
 }
