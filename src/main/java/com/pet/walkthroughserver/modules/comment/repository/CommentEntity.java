@@ -6,6 +6,7 @@ import com.pet.walkthroughserver.modules._shared.entity.BaseEntity;
 import com.pet.walkthroughserver.modules.user.repository.UserEntity;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
@@ -52,8 +53,9 @@ public class CommentEntity extends BaseEntity {
     private Long githubCommentId;
 
     @Builder.Default
+    @Convert(converter = SyncStatusConverter.class)
     @Column(name = "sync_status", nullable = false, length = 20)
-    private String syncStatus = "pending";
+    private SyncStatus syncStatus = SyncStatus.PENDING;
 
     @Builder.Default
     @Column(name = "retry_count", nullable = false)

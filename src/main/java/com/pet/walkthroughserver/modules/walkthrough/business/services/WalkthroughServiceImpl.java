@@ -7,15 +7,15 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.pet.walkthroughserver.configs.CacheNames;
+import com.pet.walkthroughserver.modules._shared.repository.Repositories;
+import com.pet.walkthroughserver.modules._shared.security.OwnershipGuard;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequest;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequestFile;
 import com.pet.walkthroughserver.modules.comment.repository.CommentRepository;
@@ -24,6 +24,7 @@ import com.pet.walkthroughserver.modules.walkthrough.business.events.Walkthrough
 import com.pet.walkthroughserver.modules.walkthrough.business.events.WalkthroughDeletedEvent;
 import com.pet.walkthroughserver.modules.walkthrough.business.events.WalkthroughEventPublisher;
 import com.pet.walkthroughserver.modules.walkthrough.business.events.WalkthroughUpdatedEvent;
+import com.pet.walkthroughserver.modules.walkthrough.business.cache.WalkthroughCacheEvictor;
 import com.pet.walkthroughserver.modules.walkthrough.business.util.WalkthroughSnapshotSerializer;
 import com.pet.walkthroughserver.modules.walkthrough.exceptions.WalkthroughAccessDeniedException;
 import com.pet.walkthroughserver.modules.walkthrough.exceptions.WalkthroughNotFoundException;
@@ -52,17 +53,10 @@ public class WalkthroughServiceImpl implements WalkthroughService {
     private final GitHubPrService gitHubPrService;
     private final WalkthroughEventPublisher walkthroughEventPublisher;
     private final CommentRepository commentRepository;
+    private final WalkthroughCacheEvictor cacheEvictor;
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = CacheNames.WALKTHROUGH_RECENT, key = "#userId"),
-            @CacheEvict(value = CacheNames.WALKTHROUGH_COUNT_REPO, allEntries = true),
-            @CacheEvict(value = CacheNames.WALKTHROUGH_COUNT_REPOS, allEntries = true),
-            @CacheEvict(value = CacheNames.WALKTHROUGH_COUNT_PR, allEntries = true),
-            @CacheEvict(value = CacheNames.WALKTHROUGH_COUNT_PRS, allEntries = true),
-            @CacheEvict(value = CacheNames.PROFILE_STATS, allEntries = true)
-    })
     public WalkthroughEntity create(UUID userId, String username, CreateWalkthroughRequest request) {
         GitHubPullRequest pr = verifyPrOwnership(userId, username, request);
 
@@ -84,6 +78,7 @@ public class WalkthroughServiceImpl implements WalkthroughService {
 
         buildChapters(walkthrough, request.getChapters(), prFilesByName);
         WalkthroughEntity saved = walkthroughRepository.save(walkthrough);
+        cacheEvictor.onWrite(userId, saved.getId());
         publishAfterCommit(new WalkthroughCreatedEvent(saved.getId(), Instant.now()));
         return saved;
     }
@@ -106,8 +101,8 @@ public class WalkthroughServiceImpl implements WalkthroughService {
     @Transactional(readOnly = true)
     @Cacheable(value = CacheNames.WALKTHROUGH_DETAIL, key = "#id")
     public WalkthroughEntity getById(UUID id, UUID requestingUserId) {
-        WalkthroughEntity walkthrough = walkthroughRepository.findByIdWithUser(id)
-                .orElseThrow(() -> new WalkthroughNotFoundException("Walkthrough not found"));
+        WalkthroughEntity walkthrough = Repositories.orThrow(walkthroughRepository.findByIdWithUser(id),
+                () -> new WalkthroughNotFoundException("Walkthrough not found"));
         boolean isOwner = walkthrough.getUserId().equals(requestingUserId);
         if (!isOwner && walkthrough.getStatus() != WalkthroughStatus.PUBLISHED) {
             throw new WalkthroughNotFoundException("Walkthrough not found");
@@ -125,16 +120,6 @@ public class WalkthroughServiceImpl implements WalkthroughService {
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = CacheNames.WALKTHROUGH_DETAIL, key = "#walkthroughId"),
-            @CacheEvict(value = CacheNames.WALKTHROUGH_RECENT, key = "#userId"),
-            @CacheEvict(value = CacheNames.WALKTHROUGH_COUNT_REPO, allEntries = true),
-            @CacheEvict(value = CacheNames.WALKTHROUGH_COUNT_REPOS, allEntries = true),
-            @CacheEvict(value = CacheNames.WALKTHROUGH_COUNT_PR, allEntries = true),
-            @CacheEvict(value = CacheNames.WALKTHROUGH_COUNT_PRS, allEntries = true),
-            @CacheEvict(value = CacheNames.WALKTHROUGH_COMMENT_COUNTS, allEntries = true),
-            @CacheEvict(value = CacheNames.PROFILE_STATS, allEntries = true)
-    })
     public WalkthroughEntity update(UUID userId, UUID walkthroughId, UpdateWalkthroughRequest request) {
         WalkthroughEntity walkthrough = findWalkthroughById(walkthroughId);
         verifyOwnership(walkthrough, userId);
@@ -151,6 +136,7 @@ public class WalkthroughServiceImpl implements WalkthroughService {
         buildChapters(walkthrough, request.getChapters(), prFilesByName);
 
         WalkthroughEntity saved = walkthroughRepository.save(walkthrough);
+        cacheEvictor.onWrite(userId, saved.getId());
         publishAfterCommit(new WalkthroughUpdatedEvent(saved.getId(), Instant.now()));
 
         // When publishing, archive any other published walkthroughs in the same PR
@@ -164,20 +150,11 @@ public class WalkthroughServiceImpl implements WalkthroughService {
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = CacheNames.WALKTHROUGH_DETAIL, key = "#walkthroughId"),
-            @CacheEvict(value = CacheNames.WALKTHROUGH_RECENT, key = "#userId"),
-            @CacheEvict(value = CacheNames.WALKTHROUGH_COUNT_REPO, allEntries = true),
-            @CacheEvict(value = CacheNames.WALKTHROUGH_COUNT_REPOS, allEntries = true),
-            @CacheEvict(value = CacheNames.WALKTHROUGH_COUNT_PR, allEntries = true),
-            @CacheEvict(value = CacheNames.WALKTHROUGH_COUNT_PRS, allEntries = true),
-            @CacheEvict(value = CacheNames.WALKTHROUGH_COMMENT_COUNTS, allEntries = true),
-            @CacheEvict(value = CacheNames.PROFILE_STATS, allEntries = true)
-    })
     public void delete(UUID userId, UUID walkthroughId) {
         WalkthroughEntity walkthrough = findWalkthroughById(walkthroughId);
         verifyOwnership(walkthrough, userId);
         walkthroughRepository.delete(walkthrough);
+        cacheEvictor.onWrite(userId, walkthroughId);
         publishAfterCommit(new WalkthroughDeletedEvent(walkthroughId, Instant.now()));
     }
 
@@ -265,14 +242,13 @@ public class WalkthroughServiceImpl implements WalkthroughService {
     }
 
     private WalkthroughEntity findWalkthroughById(UUID id) {
-        return walkthroughRepository.findById(id)
-                .orElseThrow(() -> new WalkthroughNotFoundException("Walkthrough not found"));
+        return Repositories.orThrow(walkthroughRepository.findById(id),
+                () -> new WalkthroughNotFoundException("Walkthrough not found"));
     }
 
     private void verifyOwnership(WalkthroughEntity walkthrough, UUID userId) {
-        if (!walkthrough.getUserId().equals(userId)) {
-            throw new WalkthroughAccessDeniedException("You do not own this walkthrough");
-        }
+        OwnershipGuard.require(walkthrough.getUserId(), userId,
+                () -> new WalkthroughAccessDeniedException("You do not own this walkthrough"));
     }
 
     private GitHubPullRequest verifyPrOwnership(UUID userId, String username, CreateWalkthroughRequest request) {

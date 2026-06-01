@@ -16,6 +16,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequest;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequestFile;
+import com.pet.walkthroughserver.modules._shared.repository.Repositories;
+import com.pet.walkthroughserver.modules._shared.security.OwnershipGuard;
 import com.pet.walkthroughserver.modules.githubpr.business.services.GitHubPrService;
 import com.pet.walkthroughserver.modules.walkthrough.business.events.WalkthroughEventPublisher;
 import com.pet.walkthroughserver.modules.walkthrough.business.events.WalkthroughUpdatedEvent;
@@ -379,14 +381,13 @@ public class WalkthroughVersionServiceImpl implements WalkthroughVersionService 
     }
 
     private WalkthroughEntity findWalkthrough(UUID id) {
-        return walkthroughRepository.findById(id)
-                .orElseThrow(() -> new WalkthroughNotFoundException("Walkthrough not found"));
+        return Repositories.orThrow(walkthroughRepository.findById(id),
+                () -> new WalkthroughNotFoundException("Walkthrough not found"));
     }
 
     private void verifyOwnership(WalkthroughEntity walkthrough, UUID userId) {
-        if (!walkthrough.getUserId().equals(userId)) {
-            throw new WalkthroughAccessDeniedException("You do not own this walkthrough");
-        }
+        OwnershipGuard.require(walkthrough.getUserId(), userId,
+                () -> new WalkthroughAccessDeniedException("You do not own this walkthrough"));
     }
 
     private void publishAfterCommit(WalkthroughUpdatedEvent event) {

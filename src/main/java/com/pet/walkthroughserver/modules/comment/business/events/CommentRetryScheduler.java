@@ -2,6 +2,7 @@ package com.pet.walkthroughserver.modules.comment.business.events;
 
 import com.pet.walkthroughserver.modules.comment.repository.CommentEntity;
 import com.pet.walkthroughserver.modules.comment.repository.CommentRepository;
+import com.pet.walkthroughserver.modules.comment.repository.SyncStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -26,7 +27,7 @@ public class CommentRetryScheduler {
     @Scheduled(fixedDelay = 60_000)
     public void retryFailedComments() {
         List<CommentEntity> retryable =
-                commentRepository.findBySyncStatusAndRetryCountLessThan("failed", MAX_RETRIES);
+                commentRepository.findBySyncStatusAndRetryCountLessThan(SyncStatus.FAILED, MAX_RETRIES);
 
         if (retryable.isEmpty()) return;
 
@@ -36,14 +37,14 @@ public class CommentRetryScheduler {
             comment.setRetryCount(comment.getRetryCount() + 1);
 
             if (comment.getRetryCount() >= MAX_RETRIES) {
-                comment.setSyncStatus("permanently_failed");
+                comment.setSyncStatus(SyncStatus.PERMANENTLY_FAILED);
                 log.warn("Comment {} permanently failed after {} retries", comment.getId(), MAX_RETRIES);
                 commentRepository.save(comment);
                 continue;
             }
 
             // Reset to pending so the consumer will re-process it
-            comment.setSyncStatus("pending");
+            comment.setSyncStatus(SyncStatus.PENDING);
             commentRepository.save(comment);
 
             commentEventProducer.publish(CommentCreatedEvent.builder()

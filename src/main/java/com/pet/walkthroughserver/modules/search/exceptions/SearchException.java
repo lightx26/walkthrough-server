@@ -1,12 +1,16 @@
 package com.pet.walkthroughserver.modules.search.exceptions;
 
-public class SearchException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+import com.pet.walkthroughserver.modules._shared.exceptions.AppException;
+
+public class SearchException extends AppException {
 
     public SearchException(String message) {
-        super(message);
+        super(HttpStatus.SERVICE_UNAVAILABLE, "SEARCH_ERROR", message);
     }
 
     public SearchException(String message, Throwable cause) {
-        super(message, cause);
+        super(HttpStatus.SERVICE_UNAVAILABLE, "SEARCH_ERROR", message, cause);
     }
 }

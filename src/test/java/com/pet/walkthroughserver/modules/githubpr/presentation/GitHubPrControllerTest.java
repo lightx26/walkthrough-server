@@ -9,6 +9,7 @@ import com.pet.walkthroughserver.modules.githubpr.presentation.dto.PullRequestRe
 import com.pet.walkthroughserver.modules.githubpr.presentation.mapper.CommitPresentationMapper;
 import com.pet.walkthroughserver.modules.githubpr.presentation.mapper.FileChangePresentationMapper;
 import com.pet.walkthroughserver.modules.githubpr.presentation.mapper.PullRequestPresentationMapper;
+import com.pet.walkthroughserver.modules.walkthrough.business.services.WalkthroughService;
 import com.pet.walkthroughserver.security.AuthUser;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,6 +38,9 @@ class GitHubPrControllerTest {
 
     @MockitoBean
     private GitHubPrService gitHubPrService;
+
+    @MockitoBean
+    private WalkthroughService walkthroughService;
 
     @MockitoBean
     private PullRequestPresentationMapper pullRequestMapper;

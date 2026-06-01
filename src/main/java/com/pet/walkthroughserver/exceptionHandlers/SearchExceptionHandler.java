@@ -1,26 +1,25 @@
 package com.pet.walkthroughserver.exceptionHandlers;
 
-import org.springframework.http.HttpStatus;
+import static com.pet.walkthroughserver.utils.ExceptionResponse.respond;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.pet.walkthroughserver.interceptors.ErrorResponse;
+import com.pet.walkthroughserver.modules._shared.exceptions.AppException;
 import com.pet.walkthroughserver.modules.search.exceptions.IndexingException;
 import com.pet.walkthroughserver.modules.search.exceptions.SearchException;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @RestControllerAdvice
 public class SearchExceptionHandler {
 
-    @ExceptionHandler(SearchException.class)
-    public ResponseEntity<ErrorResponse> handleSearchException(SearchException e) {
-        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                .body(ErrorResponse.of("SEARCH_ERROR", e.getMessage()));
-    }
-
-    @ExceptionHandler(IndexingException.class)
-    public ResponseEntity<ErrorResponse> handleIndexingException(IndexingException e) {
-        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                .body(ErrorResponse.of("INDEXING_ERROR", e.getMessage()));
+    @ExceptionHandler({SearchException.class, IndexingException.class})
+    public ResponseEntity<ErrorResponse> handle(AppException ex) {
+        log.warn("{}: {}", ex.getClass().getSimpleName(), ex.getMessage());
+        return respond(ex);
     }
 }

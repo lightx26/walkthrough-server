@@ -17,6 +17,7 @@ import com.pet.walkthroughserver.modules.comment.exceptions.CommentNotFoundExcep
 import com.pet.walkthroughserver.modules.comment.presentation.dto.CreateCommentRequest;
 import com.pet.walkthroughserver.modules.comment.repository.CommentEntity;
 import com.pet.walkthroughserver.modules.comment.repository.CommentRepository;
+import com.pet.walkthroughserver.modules.comment.repository.SyncStatus;
 import com.pet.walkthroughserver.modules.walkthrough.exceptions.WalkthroughNotFoundException;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughRepository;
 
@@ -45,7 +46,7 @@ public class CommentServiceImpl implements CommentService {
                 .walkthroughFileId(request.getWalkthroughFileId())
                 .diffPosition(request.getDiffPosition())
                 .parentId(request.getParentId())
-                .syncStatus("pending")
+                .syncStatus(SyncStatus.PENDING)
                 .build();
 
         CommentEntity saved = commentRepository.save(comment);

@@ -3,8 +3,8 @@ package com.pet.walkthroughserver.modules.githubrepo.business.services;
 import com.pet.walkthroughserver.configs.CacheNames;
 import com.pet.walkthroughserver.modules._shared.dto.PageData;
 import com.pet.walkthroughserver.modules._shared.infra.github.GitHubResourceClient;
+import com.pet.walkthroughserver.modules._shared.infra.github.GitHubTokenProvider;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubRepository;
-import com.pet.walkthroughserver.modules._shared.infra.github.exceptions.GitHubAccessTokenNotFoundException;
 import com.pet.walkthroughserver.modules.user.business.services.UserService;
 import com.pet.walkthroughserver.modules.user.repository.UserEntity;
 import lombok.RequiredArgsConstructor;
@@ -19,12 +19,13 @@ import java.util.UUID;
 public class GitHubRepoServiceImpl implements GitHubRepoService {
 
     private final GitHubResourceClient gitHubResourceClient;
+    private final GitHubTokenProvider gitHubTokenProvider;
     private final UserService userService;
 
     @Override
     @Cacheable(value = CacheNames.GITHUB_REPOS, key = "#userId + ':' + #page + ':' + #perPage + ':' + #sort")
     public PageData<GitHubRepository> getUserRepositories(UUID userId, int page, int perPage, String sort) {
-        String accessToken = getGitHubAccessToken(userId);
+        String accessToken = gitHubTokenProvider.accessTokenFor(userId);
         var result = gitHubResourceClient.fetchUserRepositories(accessToken, page, perPage, sort);
         return PageData.of(result.items(), result.page(), perPage, result.totalElements(), result.totalPages());
     }
@@ -33,7 +34,7 @@ public class GitHubRepoServiceImpl implements GitHubRepoService {
     @Cacheable(value = CacheNames.GITHUB_REPO_SEARCH, key = "#userId + ':' + #query + ':' + #page + ':' + #perPage")
     public PageData<GitHubRepository> searchRepositories(UUID userId, String query, int page, int perPage) {
         UserEntity user = userService.findById(userId);
-        String accessToken = getAccessTokenFromUser(user);
+        String accessToken = gitHubTokenProvider.requireToken(user);
         String scopedQuery = query + " user:" + user.getUsername();
         var response = gitHubResourceClient.searchRepositories(accessToken, scopedQuery, page, perPage);
         int totalPages = (int) Math.ceil((double) response.getTotalCount() / perPage);
@@ -43,19 +44,7 @@ public class GitHubRepoServiceImpl implements GitHubRepoService {
     @Override
     @Cacheable(value = CacheNames.GITHUB_REPO, key = "#userId + ':' + #owner + ':' + #repo")
     public GitHubRepository getRepository(UUID userId, String owner, String repo) {
-        String accessToken = getGitHubAccessToken(userId);
+        String accessToken = gitHubTokenProvider.accessTokenFor(userId);
         return gitHubResourceClient.fetchRepository(accessToken, owner, repo);
-    }
-
-    private String getGitHubAccessToken(UUID userId) {
-        return getAccessTokenFromUser(userService.findById(userId));
-    }
-
-    private String getAccessTokenFromUser(UserEntity user) {
-        String token = user.getGithubAccessToken();
-        if (token == null || token.isBlank()) {
-            throw new GitHubAccessTokenNotFoundException("GitHub access token not found. Please re-authenticate.");
-        }
-        return token;
     }
 }

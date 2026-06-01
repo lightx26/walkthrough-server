@@ -22,7 +22,7 @@ public interface CommentRepository extends JpaRepository<CommentEntity, UUID> {
 
     Optional<CommentEntity> findByIdAndUserId(UUID id, UUID userId);
 
-    List<CommentEntity> findBySyncStatusAndRetryCountLessThan(String syncStatus, int maxRetries);
+    List<CommentEntity> findBySyncStatusAndRetryCountLessThan(SyncStatus syncStatus, int maxRetries);
 
     long countByWalkthroughId(UUID walkthroughId);
 

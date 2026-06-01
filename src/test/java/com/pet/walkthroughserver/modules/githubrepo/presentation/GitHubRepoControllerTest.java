@@ -1,5 +1,6 @@
 package com.pet.walkthroughserver.modules.githubrepo.presentation;
 
+import com.pet.walkthroughserver.modules._shared.dto.PageData;
 import com.pet.walkthroughserver.modules._shared.infra.cookie.CookieService;
 import com.pet.walkthroughserver.modules._shared.infra.github.exceptions.GitHubApiException;
 import com.pet.walkthroughserver.modules._shared.infra.github.exceptions.GitHubAccessTokenNotFoundException;
@@ -8,6 +9,8 @@ import com.pet.walkthroughserver.modules._shared.infra.jwt.TokenService;
 import com.pet.walkthroughserver.modules.githubrepo.business.services.GitHubRepoService;
 import com.pet.walkthroughserver.modules.githubrepo.presentation.dto.RepositoryResponse;
 import com.pet.walkthroughserver.modules.githubrepo.presentation.mapper.RepositoryPresentationMapper;
+import com.pet.walkthroughserver.modules.pinnedRepo.business.services.PinnedRepoService;
+import com.pet.walkthroughserver.modules.walkthrough.business.services.WalkthroughService;
 import com.pet.walkthroughserver.security.AuthUser;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +20,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.*;
@@ -41,23 +46,32 @@ class GitHubRepoControllerTest {
     private RepositoryPresentationMapper repositoryMapper;
 
     @MockitoBean
+    private WalkthroughService walkthroughService;
+
+    @MockitoBean
+    private PinnedRepoService pinnedRepoService;
+
+    @MockitoBean
     private TokenService tokenService;
 
     @MockitoBean
     private CookieService cookieService;
 
     @Test
-    void getUserRepositories_success_returnsListData() throws Exception {
+    void getUserRepositories_success_returnsPageData() throws Exception {
         GitHubRepository ghRepo = new GitHubRepository();
         ghRepo.setId(1L);
         ghRepo.setName("my-repo");
+        ghRepo.setFullName("testuser/my-repo");
 
         RepositoryResponse repoResponse = RepositoryResponse.builder()
-                .id(1L).name("my-repo").build();
+                .id(1L).name("my-repo").fullName("testuser/my-repo").build();
 
-        when(gitHubRepoService.getUserRepositories(eq(USER_ID), eq(1), eq(30), eq("updated")))
-                .thenReturn(List.of(ghRepo));
-        when(repositoryMapper.toResponseList(anyList())).thenReturn(List.of(repoResponse));
+        when(gitHubRepoService.getUserRepositories(eq(USER_ID), anyInt(), anyInt(), eq("updated")))
+                .thenReturn(PageData.of(List.of(ghRepo), 1, 20, 1L, 1));
+        when(repositoryMapper.toResponse(any(GitHubRepository.class))).thenReturn(repoResponse);
+        when(walkthroughService.countByRepos(anyList(), eq(USER_ID))).thenReturn(Map.of());
+        when(pinnedRepoService.findPinnedFullNames(eq(USER_ID), anyList())).thenReturn(Set.of());
 
         mockMvc.perform(get("/v1/github/repos")
                         .with(authentication(authToken())))
@@ -68,17 +82,20 @@ class GitHubRepoControllerTest {
     }
 
     @Test
-    void searchRepositories_withQueryParam_returnsListData() throws Exception {
+    void searchRepositories_withQueryParam_returnsPageData() throws Exception {
         GitHubRepository ghRepo = new GitHubRepository();
         ghRepo.setId(2L);
         ghRepo.setName("search-result");
+        ghRepo.setFullName("testuser/search-result");
 
         RepositoryResponse repoResponse = RepositoryResponse.builder()
-                .id(2L).name("search-result").build();
+                .id(2L).name("search-result").fullName("testuser/search-result").build();
 
-        when(gitHubRepoService.searchRepositories(eq(USER_ID), eq("test"), eq(1), eq(30)))
-                .thenReturn(List.of(ghRepo));
-        when(repositoryMapper.toResponseList(anyList())).thenReturn(List.of(repoResponse));
+        when(gitHubRepoService.searchRepositories(eq(USER_ID), eq("test"), anyInt(), anyInt()))
+                .thenReturn(PageData.of(List.of(ghRepo), 1, 20, 1L, 1));
+        when(repositoryMapper.toResponse(any(GitHubRepository.class))).thenReturn(repoResponse);
+        when(walkthroughService.countByRepos(anyList(), eq(USER_ID))).thenReturn(Map.of());
+        when(pinnedRepoService.findPinnedFullNames(eq(USER_ID), anyList())).thenReturn(Set.of());
 
         mockMvc.perform(get("/v1/github/repos")
                         .param("q", "test")

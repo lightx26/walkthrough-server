@@ -10,6 +10,7 @@ import com.pet.walkthroughserver.modules.comment.business.services.GitHubComment
 import com.pet.walkthroughserver.modules.comment.business.util.DiffPositionParser;
 import com.pet.walkthroughserver.modules.comment.repository.CommentEntity;
 import com.pet.walkthroughserver.modules.comment.repository.CommentRepository;
+import com.pet.walkthroughserver.modules.comment.repository.SyncStatus;
 import com.pet.walkthroughserver.modules.user.business.services.UserService;
 import com.pet.walkthroughserver.modules.user.repository.UserEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughEntity;
@@ -92,7 +93,7 @@ public class CommentSyncConsumer {
                 !DiffPositionParser.isValidPosition(file.getRawPatch(), comment.getDiffPosition())) {
             log.warn("diff_position {} is no longer valid in raw_patch for comment {} — marking FAILED (OUTDATED_DIFF)",
                     comment.getDiffPosition(), comment.getId());
-            comment.setSyncStatus("failed");
+            comment.setSyncStatus(SyncStatus.FAILED);
             commentRepository.save(comment);
             return;
         }
@@ -121,13 +122,13 @@ public class CommentSyncConsumer {
                     comment.getDiffPosition()
             );
             comment.setGithubCommentId(githubCommentId);
-            comment.setSyncStatus("synced");
+            comment.setSyncStatus(SyncStatus.SYNCED);
             log.info("Line comment {} synced as review comment {}", comment.getId(), githubCommentId);
         } catch (Exception e) {
             log.error("Pull review comment sync failed for comment {}: {}", comment.getId(), e.getMessage());
             // If it failed due to an outdated commit, mark appropriately; otherwise re-throw
             if (e.getMessage() != null && e.getMessage().contains("422")) {
-                comment.setSyncStatus("failed");
+                comment.setSyncStatus(SyncStatus.FAILED);
                 log.warn("Commit SHA may be outdated for comment {}", comment.getId());
             } else {
                 throw e;
@@ -152,13 +153,13 @@ public class CommentSyncConsumer {
                 body
         );
         comment.setGithubCommentId(githubCommentId);
-        comment.setSyncStatus("synced");
+        comment.setSyncStatus(SyncStatus.SYNCED);
         log.info("General comment {} synced as issue comment {}", comment.getId(), githubCommentId);
         commentRepository.save(comment);
     }
 
     private void markFailed(CommentEntity comment) {
-        comment.setSyncStatus("failed");
+        comment.setSyncStatus(SyncStatus.FAILED);
         commentRepository.save(comment);
     }
 
