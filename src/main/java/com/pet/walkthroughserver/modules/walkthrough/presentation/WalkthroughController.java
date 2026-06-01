@@ -32,6 +32,7 @@ import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.UpdateWalk
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.VersionDiffResponse;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.WalkthroughResponse;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.WalkthroughSummaryResponse;
+import com.pet.walkthroughserver.modules.walkthrough.presentation.assembler.VersionDiffAssembler;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.mapper.ReadProgressPresentationMapper;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.mapper.WalkthroughPresentationMapper;
 import com.pet.walkthroughserver.modules.walkthrough.repository.ReadProgressEntity;
@@ -51,6 +52,7 @@ public class WalkthroughController {
     private final WalkthroughVersionService walkthroughVersionService;
     private final WalkthroughPresentationMapper walkthroughMapper;
     private final ReadProgressPresentationMapper readProgressMapper;
+    private final VersionDiffAssembler versionDiffAssembler;
 
     @PostMapping
     @PreAuthorize("isAuthenticated()")
@@ -208,7 +210,8 @@ public class WalkthroughController {
             @AuthenticationPrincipal AuthUser authUser,
             @PathVariable UUID id) {
         UUID userId = UUID.fromString(authUser.getUserId());
-        StalenessResponse response = walkthroughVersionService.checkStaleness(userId, id);
+        StalenessResponse response = versionDiffAssembler.toResponse(
+                walkthroughVersionService.checkStaleness(userId, id));
         return ResponseEntity.ok(DataResponse.of(response));
     }
 
@@ -231,7 +234,8 @@ public class WalkthroughController {
             @RequestParam int fromVersion,
             @RequestParam int toVersion) {
         UUID userId = UUID.fromString(authUser.getUserId());
-        VersionDiffResponse response = walkthroughVersionService.getVersionDiff(userId, id, fromVersion, toVersion);
+        VersionDiffResponse response = versionDiffAssembler.toResponse(
+                walkthroughVersionService.getVersionDiff(userId, id, fromVersion, toVersion));
         return ResponseEntity.ok(DataResponse.of(response));
     }
 

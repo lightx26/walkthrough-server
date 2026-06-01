@@ -1,6 +1,7 @@
 package com.pet.walkthroughserver.modules.walkthrough.repository;
 
 import com.pet.walkthroughserver.modules._shared.entity.BaseEntity;
+import com.pet.walkthroughserver.modules.walkthrough.business.models.SnapshotContent;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
@@ -12,7 +13,6 @@ import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-import java.util.Map;
 import java.util.UUID;
 
 @Entity
@@ -35,5 +35,5 @@ public class WalkthroughSnapshotEntity extends BaseEntity {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "walkthrough_content", nullable = false, columnDefinition = "jsonb")
-    private Map<String, Object> walkthroughContent;
+    private SnapshotContent walkthroughContent;
 }

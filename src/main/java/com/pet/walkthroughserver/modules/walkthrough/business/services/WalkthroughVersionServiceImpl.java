@@ -21,20 +21,18 @@ import com.pet.walkthroughserver.modules._shared.security.OwnershipGuard;
 import com.pet.walkthroughserver.modules._shared.messaging.DomainEventPublisher;
 import com.pet.walkthroughserver.modules.githubpr.business.services.GitHubPrService;
 import com.pet.walkthroughserver.modules.walkthrough.business.events.WalkthroughUpdatedEvent;
+import com.pet.walkthroughserver.modules.walkthrough.business.models.SnapshotContent;
+import com.pet.walkthroughserver.modules.walkthrough.business.models.StalenessResult;
+import com.pet.walkthroughserver.modules.walkthrough.business.models.VersionDiff;
 import com.pet.walkthroughserver.modules.walkthrough.business.util.DiffLineMapper;
-import com.pet.walkthroughserver.modules.walkthrough.business.util.WalkthroughSnapshotSerializer;
 import com.pet.walkthroughserver.modules.walkthrough.exceptions.WalkthroughAccessDeniedException;
 import com.pet.walkthroughserver.modules.walkthrough.exceptions.WalkthroughNotFoundException;
-import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.StalenessResponse;
-import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.VersionDiffResponse;
 import com.pet.walkthroughserver.modules.walkthrough.repository.AnnotationEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.AnnotationStatus;
 import com.pet.walkthroughserver.modules.walkthrough.repository.ChapterEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughFileEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughRepository;
-import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughSnapshotEntity;
-import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughSnapshotRepository;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughStatus;
 
 import lombok.RequiredArgsConstructor;
@@ -46,14 +44,14 @@ import lombok.extern.slf4j.Slf4j;
 public class WalkthroughVersionServiceImpl implements WalkthroughVersionService {
 
     private final WalkthroughRepository walkthroughRepository;
-    private final WalkthroughSnapshotRepository snapshotRepository;
+    private final WalkthroughSnapshotService snapshotService;
     private final GitHubPrService gitHubPrService;
     private final DomainEventPublisher eventPublisher;
 
     // ── 5.1 Detect stale walkthrough ──
 
     @Override
-    public StalenessResponse checkStaleness(UUID userId, UUID walkthroughId) {
+    public StalenessResult checkStaleness(UUID userId, UUID walkthroughId) {
         WalkthroughEntity walkthrough = findWalkthrough(walkthroughId);
         verifyOwnership(walkthrough, userId);
 
@@ -63,12 +61,7 @@ public class WalkthroughVersionServiceImpl implements WalkthroughVersionService 
         String latestSha = pr.getHead() != null ? pr.getHead().getSha() : null;
         boolean stale = latestSha != null && !latestSha.equals(walkthrough.getCommitSha());
 
-        return StalenessResponse.builder()
-                .stale(stale)
-                .currentCommitSha(walkthrough.getCommitSha())
-                .latestCommitSha(latestSha)
-                .currentVersion(walkthrough.getVersion())
-                .build();
+        return new StalenessResult(stale, walkthrough.getCommitSha(), latestSha, walkthrough.getVersion());
     }
 
     // ── 5.2 Create new walkthrough version ──
@@ -80,7 +73,7 @@ public class WalkthroughVersionServiceImpl implements WalkthroughVersionService 
         verifyOwnership(walkthrough, userId);
 
         // 1. Snapshot current state before modification
-        captureSnapshot(walkthrough);
+        snapshotService.captureSnapshot(walkthrough);
 
         // 2. Fetch fresh PR data
         GitHubPullRequest pr = gitHubPrService.getPullRequest(
@@ -150,61 +143,29 @@ public class WalkthroughVersionServiceImpl implements WalkthroughVersionService 
     // ── 5.4 Walkthrough Diff View ──
 
     @Override
-    public VersionDiffResponse getVersionDiff(UUID userId, UUID walkthroughId, int fromVersion, int toVersion) {
+    public VersionDiff getVersionDiff(UUID userId, UUID walkthroughId, int fromVersion, int toVersion) {
         WalkthroughEntity walkthrough = findWalkthrough(walkthroughId);
 
-        // Get snapshots
-        Map<String, Object> fromContent = getSnapshotContent(walkthroughId, fromVersion, walkthrough);
-        Map<String, Object> toContent = getSnapshotContent(walkthroughId, toVersion, walkthrough);
+        SnapshotContent fromContent = snapshotService.getSnapshotContent(walkthroughId, fromVersion, walkthrough);
+        SnapshotContent toContent = snapshotService.getSnapshotContent(walkthroughId, toVersion, walkthrough);
 
-        String fromCommitSha = getStringField(fromContent, "commitSha");
-        String toCommitSha = getStringField(toContent, "commitSha");
+        List<VersionDiff.ChapterDiff> chapterDiffs = compareChapters(fromContent, toContent);
+        List<VersionDiff.AnnotationDiff> outdatedAnnotations = collectOutdatedAnnotations(toContent);
 
-        // Compare chapters
-        List<VersionDiffResponse.ChapterDiff> chapterDiffs = compareChapters(fromContent, toContent);
-
-        // Collect outdated annotations from the target version
-        List<VersionDiffResponse.AnnotationDiff> outdatedAnnotations = collectOutdatedAnnotations(toContent);
-
-        return VersionDiffResponse.builder()
-                .walkthroughId(walkthroughId)
-                .fromVersion(fromVersion)
-                .toVersion(toVersion)
-                .fromCommitSha(fromCommitSha)
-                .toCommitSha(toCommitSha)
-                .chapters(chapterDiffs)
-                .outdatedAnnotations(outdatedAnnotations)
-                .build();
+        return new VersionDiff(
+                walkthroughId, fromVersion, toVersion,
+                fromContent.commitSha(), toContent.commitSha(),
+                chapterDiffs, outdatedAnnotations);
     }
 
     // ── Private helpers ──
-
-    private void captureSnapshot(WalkthroughEntity walkthrough) {
-        // Don't duplicate if snapshot already exists for this version
-        if (snapshotRepository.findByWalkthroughIdAndVersion(
-                walkthrough.getId(), walkthrough.getVersion()).isPresent()) {
-            return;
-        }
-
-        Map<String, Object> content = WalkthroughSnapshotSerializer.serialize(walkthrough);
-
-        WalkthroughSnapshotEntity snapshot = WalkthroughSnapshotEntity.builder()
-                .walkthroughId(walkthrough.getId())
-                .version(walkthrough.getVersion())
-                .commitSha(walkthrough.getCommitSha())
-                .walkthroughContent(content)
-                .build();
-
-        snapshotRepository.save(snapshot);
-        log.info("Captured snapshot for walkthrough {} version {}", walkthrough.getId(), walkthrough.getVersion());
-    }
 
     private void validateAnnotations(WalkthroughFileEntity file, String oldRawPatch) {
         String newRawPatch = file.getRawPatch();
 
         for (AnnotationEntity annotation : file.getAnnotations()) {
             if (annotation.getStatus() == AnnotationStatus.OUTDATED) {
-                continue; // already marked
+                continue;
             }
 
             boolean valid = newRawPatch != null && DiffLineMapper.isRangeValid(
@@ -222,156 +183,92 @@ public class WalkthroughVersionServiceImpl implements WalkthroughVersionService 
         }
     }
 
-    @SuppressWarnings("unchecked")
-    private Map<String, Object> getSnapshotContent(UUID walkthroughId, int version, WalkthroughEntity walkthrough) {
-        // If requesting current version and no snapshot yet, serialize live data
-        if (version == walkthrough.getVersion()) {
-            return snapshotRepository.findByWalkthroughIdAndVersion(walkthroughId, version)
-                    .map(WalkthroughSnapshotEntity::getWalkthroughContent)
-                    .orElseGet(() -> WalkthroughSnapshotSerializer.serialize(walkthrough));
+    private List<VersionDiff.ChapterDiff> compareChapters(SnapshotContent fromContent, SnapshotContent toContent) {
+        List<SnapshotContent.SnapshotChapter> fromChapters = fromContent.chapters() != null ? fromContent.chapters() : List.of();
+        List<SnapshotContent.SnapshotChapter> toChapters = toContent.chapters() != null ? toContent.chapters() : List.of();
+
+        Map<String, SnapshotContent.SnapshotChapter> fromByTitle = new LinkedHashMap<>();
+        for (SnapshotContent.SnapshotChapter ch : fromChapters) {
+            fromByTitle.put(ch.title(), ch);
         }
 
-        return snapshotRepository.findByWalkthroughIdAndVersion(walkthroughId, version)
-                .map(WalkthroughSnapshotEntity::getWalkthroughContent)
-                .orElseThrow(() -> new WalkthroughNotFoundException(
-                        "Snapshot not found for walkthrough " + walkthroughId + " version " + version));
-    }
+        List<VersionDiff.ChapterDiff> diffs = new ArrayList<>();
 
-    @SuppressWarnings("unchecked")
-    private List<VersionDiffResponse.ChapterDiff> compareChapters(
-            Map<String, Object> fromContent, Map<String, Object> toContent) {
-
-        List<Map<String, Object>> fromChapters = getListField(fromContent, "chapters");
-        List<Map<String, Object>> toChapters = getListField(toContent, "chapters");
-
-        // Index chapters by title for matching
-        Map<String, Map<String, Object>> fromByTitle = new LinkedHashMap<>();
-        for (Map<String, Object> ch : fromChapters) {
-            fromByTitle.put(getStringField(ch, "title"), ch);
-        }
-        Map<String, Map<String, Object>> toByTitle = new LinkedHashMap<>();
-        for (Map<String, Object> ch : toChapters) {
-            toByTitle.put(getStringField(ch, "title"), ch);
-        }
-
-        List<VersionDiffResponse.ChapterDiff> diffs = new ArrayList<>();
-
-        // Process all "to" chapters
-        for (Map<String, Object> toCh : toChapters) {
-            String title = getStringField(toCh, "title");
-            Map<String, Object> fromCh = fromByTitle.remove(title);
+        for (SnapshotContent.SnapshotChapter toCh : toChapters) {
+            String title = toCh.title();
+            SnapshotContent.SnapshotChapter fromCh = fromByTitle.remove(title);
 
             if (fromCh == null) {
-                // New chapter
-                diffs.add(VersionDiffResponse.ChapterDiff.builder()
-                        .changeType("ADDED")
-                        .title(title)
-                        .toTitle(title)
-                        .files(extractFileDiffs(null, getListField(toCh, "files")))
-                        .build());
+                diffs.add(new VersionDiff.ChapterDiff("ADDED", title, null, title,
+                        extractFileDiffs(null, toCh.files())));
             } else {
-                // Existing chapter — compare files
-                List<VersionDiffResponse.FileDiff> fileDiffs =
-                        extractFileDiffs(getListField(fromCh, "files"), getListField(toCh, "files"));
-
+                List<VersionDiff.FileDiff> fileDiffs = extractFileDiffs(fromCh.files(), toCh.files());
                 boolean hasChanges = fileDiffs.stream()
-                        .anyMatch(f -> !"UNCHANGED".equals(f.getChangeType()));
-
-                diffs.add(VersionDiffResponse.ChapterDiff.builder()
-                        .changeType(hasChanges ? "MODIFIED" : "UNCHANGED")
-                        .title(title)
-                        .fromTitle(title)
-                        .toTitle(title)
-                        .files(fileDiffs)
-                        .build());
+                        .anyMatch(f -> !"UNCHANGED".equals(f.changeType()));
+                diffs.add(new VersionDiff.ChapterDiff(
+                        hasChanges ? "MODIFIED" : "UNCHANGED", title, title, title, fileDiffs));
             }
         }
 
-        // Remaining fromByTitle entries are removed chapters
-        for (Map.Entry<String, Map<String, Object>> entry : fromByTitle.entrySet()) {
-            diffs.add(VersionDiffResponse.ChapterDiff.builder()
-                    .changeType("REMOVED")
-                    .title(entry.getKey())
-                    .fromTitle(entry.getKey())
-                    .files(extractFileDiffs(getListField(entry.getValue(), "files"), null))
-                    .build());
+        for (Map.Entry<String, SnapshotContent.SnapshotChapter> entry : fromByTitle.entrySet()) {
+            diffs.add(new VersionDiff.ChapterDiff("REMOVED", entry.getKey(), entry.getKey(), null,
+                    extractFileDiffs(entry.getValue().files(), null)));
         }
 
         return diffs;
     }
 
-    @SuppressWarnings("unchecked")
-    private List<VersionDiffResponse.FileDiff> extractFileDiffs(
-            List<Map<String, Object>> fromFiles, List<Map<String, Object>> toFiles) {
-
-        List<VersionDiffResponse.FileDiff> diffs = new ArrayList<>();
+    private List<VersionDiff.FileDiff> extractFileDiffs(
+            List<SnapshotContent.SnapshotFile> fromFiles, List<SnapshotContent.SnapshotFile> toFiles) {
 
         if (fromFiles == null) fromFiles = List.of();
         if (toFiles == null) toFiles = List.of();
 
-        Map<String, Map<String, Object>> fromByName = new LinkedHashMap<>();
-        for (Map<String, Object> f : fromFiles) {
-            fromByName.put(getStringField(f, "filename"), f);
+        Map<String, SnapshotContent.SnapshotFile> fromByName = new LinkedHashMap<>();
+        for (SnapshotContent.SnapshotFile f : fromFiles) {
+            fromByName.put(f.filename(), f);
         }
 
-        for (Map<String, Object> toFile : toFiles) {
-            String filename = getStringField(toFile, "filename");
-            Map<String, Object> fromFile = fromByName.remove(filename);
+        List<VersionDiff.FileDiff> diffs = new ArrayList<>();
+
+        for (SnapshotContent.SnapshotFile toFile : toFiles) {
+            String filename = toFile.filename();
+            SnapshotContent.SnapshotFile fromFile = fromByName.remove(filename);
 
             if (fromFile == null) {
-                diffs.add(VersionDiffResponse.FileDiff.builder()
-                        .changeType("ADDED")
-                        .filename(filename)
-                        .toFilename(filename)
-                        .build());
+                diffs.add(new VersionDiff.FileDiff("ADDED", filename, null, filename));
             } else {
-                String fromSha = getStringField(fromFile, "fileSha");
-                String toSha = getStringField(toFile, "fileSha");
-                boolean modified = fromSha != null && !fromSha.equals(toSha);
-
-                diffs.add(VersionDiffResponse.FileDiff.builder()
-                        .changeType(modified ? "MODIFIED" : "UNCHANGED")
-                        .filename(filename)
-                        .fromFilename(filename)
-                        .toFilename(filename)
-                        .build());
+                boolean modified = fromFile.fileSha() != null && !fromFile.fileSha().equals(toFile.fileSha());
+                diffs.add(new VersionDiff.FileDiff(
+                        modified ? "MODIFIED" : "UNCHANGED", filename, filename, filename));
             }
         }
 
         for (String removedFilename : fromByName.keySet()) {
-            diffs.add(VersionDiffResponse.FileDiff.builder()
-                    .changeType("REMOVED")
-                    .filename(removedFilename)
-                    .fromFilename(removedFilename)
-                    .build());
+            diffs.add(new VersionDiff.FileDiff("REMOVED", removedFilename, removedFilename, null));
         }
 
         return diffs;
     }
 
-    @SuppressWarnings("unchecked")
-    private List<VersionDiffResponse.AnnotationDiff> collectOutdatedAnnotations(Map<String, Object> content) {
-        List<VersionDiffResponse.AnnotationDiff> outdated = new ArrayList<>();
+    private List<VersionDiff.AnnotationDiff> collectOutdatedAnnotations(SnapshotContent content) {
+        List<VersionDiff.AnnotationDiff> outdated = new ArrayList<>();
 
-        List<Map<String, Object>> chapters = getListField(content, "chapters");
-        for (Map<String, Object> chapter : chapters) {
-            List<Map<String, Object>> files = getListField(chapter, "files");
-            for (Map<String, Object> file : files) {
-                String filename = getStringField(file, "filename");
-                List<Map<String, Object>> annotations = getListField(file, "annotations");
-
-                for (Map<String, Object> annotation : annotations) {
-                    String status = getStringField(annotation, "status");
-                    if ("OUTDATED".equals(status)) {
-                        outdated.add(VersionDiffResponse.AnnotationDiff.builder()
-                                .annotationId(UUID.fromString(getStringField(annotation, "id")))
-                                .filename(filename)
-                                .startLine(getIntField(annotation, "startLine"))
-                                .endLine(getIntField(annotation, "endLine"))
-                                .lineSide(getStringField(annotation, "lineSide"))
-                                .content(getStringField(annotation, "content"))
-                                .reason("DIFF_CHANGED")
-                                .build());
+        List<SnapshotContent.SnapshotChapter> chapters = content.chapters() != null ? content.chapters() : List.of();
+        for (SnapshotContent.SnapshotChapter chapter : chapters) {
+            List<SnapshotContent.SnapshotFile> files = chapter.files() != null ? chapter.files() : List.of();
+            for (SnapshotContent.SnapshotFile file : files) {
+                List<SnapshotContent.SnapshotAnnotation> annotations = file.annotations() != null ? file.annotations() : List.of();
+                for (SnapshotContent.SnapshotAnnotation annotation : annotations) {
+                    if ("OUTDATED".equals(annotation.status())) {
+                        outdated.add(new VersionDiff.AnnotationDiff(
+                                UUID.fromString(annotation.id()),
+                                file.filename(),
+                                annotation.startLine(),
+                                annotation.endLine(),
+                                annotation.lineSide(),
+                                annotation.content(),
+                                "DIFF_CHANGED"));
                     }
                 }
             }
@@ -397,26 +294,5 @@ public class WalkthroughVersionServiceImpl implements WalkthroughVersionService 
                 eventPublisher.publish(event);
             }
         });
-    }
-
-    // ── JSON Map helpers ──
-
-    private static String getStringField(Map<String, Object> map, String key) {
-        Object val = map.get(key);
-        return val != null ? val.toString() : null;
-    }
-
-    private static int getIntField(Map<String, Object> map, String key) {
-        Object val = map.get(key);
-        if (val instanceof Number n) return n.intValue();
-        if (val != null) return Integer.parseInt(val.toString());
-        return 0;
-    }
-
-    @SuppressWarnings("unchecked")
-    private static List<Map<String, Object>> getListField(Map<String, Object> map, String key) {
-        Object val = map.get(key);
-        if (val instanceof List<?> list) return (List<Map<String, Object>>) list;
-        return List.of();
     }
 }

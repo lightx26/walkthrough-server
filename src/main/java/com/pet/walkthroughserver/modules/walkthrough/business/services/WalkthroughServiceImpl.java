@@ -26,7 +26,6 @@ import com.pet.walkthroughserver.modules.walkthrough.business.events.Walkthrough
 import com.pet.walkthroughserver.modules.walkthrough.business.events.WalkthroughDeletedEvent;
 import com.pet.walkthroughserver.modules.walkthrough.business.events.WalkthroughUpdatedEvent;
 import com.pet.walkthroughserver.modules.walkthrough.business.cache.WalkthroughCacheEvictor;
-import com.pet.walkthroughserver.modules.walkthrough.business.util.WalkthroughSnapshotSerializer;
 import com.pet.walkthroughserver.modules.walkthrough.exceptions.WalkthroughAccessDeniedException;
 import com.pet.walkthroughserver.modules.walkthrough.exceptions.WalkthroughNotFoundException;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.AnnotationRequest;
@@ -39,8 +38,6 @@ import com.pet.walkthroughserver.modules.walkthrough.repository.ChapterEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughFileEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughRepository;
-import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughSnapshotEntity;
-import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughSnapshotRepository;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughStatus;
 
 import lombok.RequiredArgsConstructor;
@@ -50,7 +47,7 @@ import lombok.RequiredArgsConstructor;
 public class WalkthroughServiceImpl implements WalkthroughService {
 
     private final WalkthroughRepository walkthroughRepository;
-    private final WalkthroughSnapshotRepository snapshotRepository;
+    private final WalkthroughSnapshotService snapshotService;
     private final GitHubPrService gitHubPrService;
     private final DomainEventPublisher eventPublisher;
     private final CommentRepository commentRepository;
@@ -225,21 +222,7 @@ public class WalkthroughServiceImpl implements WalkthroughService {
     }
 
     private void captureSnapshot(WalkthroughEntity walkthrough) {
-        if (snapshotRepository.findByWalkthroughIdAndVersion(
-                walkthrough.getId(), walkthrough.getVersion()).isPresent()) {
-            return;
-        }
-
-        Map<String, Object> content = WalkthroughSnapshotSerializer.serialize(walkthrough);
-
-        WalkthroughSnapshotEntity snapshot = WalkthroughSnapshotEntity.builder()
-                .walkthroughId(walkthrough.getId())
-                .version(walkthrough.getVersion())
-                .commitSha(walkthrough.getCommitSha())
-                .walkthroughContent(content)
-                .build();
-
-        snapshotRepository.save(snapshot);
+        snapshotService.captureSnapshot(walkthrough);
     }
 
     private WalkthroughEntity findWalkthroughById(UUID id) {
