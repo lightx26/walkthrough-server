@@ -1,6 +1,6 @@
 package com.pet.walkthroughserver.modules.profile.business.services;
 
-import com.pet.walkthroughserver.modules.profile.presentation.dto.PinnedWalkthroughResponse;
+import com.pet.walkthroughserver.modules.profile.business.models.PinnedWalkthrough;
 import com.pet.walkthroughserver.modules.profile.presentation.dto.PinWalkthroughRequest;
 import com.pet.walkthroughserver.modules.profile.presentation.dto.ReorderPinsRequest;
 
@@ -9,9 +9,9 @@ import java.util.UUID;
 
 public interface WalkthroughPinService {
 
-    List<PinnedWalkthroughResponse> getPins(String username);
+    List<PinnedWalkthrough> getPins(String username);
 
-    PinnedWalkthroughResponse pinWalkthrough(UUID userId, PinWalkthroughRequest request);
+    PinnedWalkthrough pinWalkthrough(UUID userId, PinWalkthroughRequest request);
 
     void reorderPins(UUID userId, ReorderPinsRequest request);
 

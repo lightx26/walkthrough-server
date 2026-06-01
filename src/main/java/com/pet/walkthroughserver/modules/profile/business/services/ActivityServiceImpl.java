@@ -1,7 +1,6 @@
 package com.pet.walkthroughserver.modules.profile.business.services;
 
 import com.pet.walkthroughserver.modules._shared.dto.SliceData;
-import com.pet.walkthroughserver.modules.profile.presentation.dto.ActivityEntryResponse;
 import com.pet.walkthroughserver.modules.profile.repository.ActivityEntryEntity;
 import com.pet.walkthroughserver.modules.profile.repository.ActivityEntryRepository;
 import com.pet.walkthroughserver.modules.user.exceptions.UserNotFoundException;
@@ -23,7 +22,7 @@ public class ActivityServiceImpl implements ActivityService {
     private final UserRepository userRepository;
 
     @Override
-    public SliceData<ActivityEntryResponse> getActivity(String username, UUID viewerId, Instant before, int limit) {
+    public SliceData<ActivityEntryEntity> getActivity(String username, UUID viewerId, Instant before, int limit) {
         UserEntity user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
 
@@ -40,23 +39,6 @@ public class ActivityServiceImpl implements ActivityService {
         boolean hasNext = entries.size() > limit;
         List<ActivityEntryEntity> resultEntries = hasNext ? entries.subList(0, limit) : entries;
 
-        List<ActivityEntryResponse> responses = resultEntries.stream()
-                .map(this::toResponse)
-                .toList();
-
-        return SliceData.of(responses, hasNext);
-    }
-
-    private ActivityEntryResponse toResponse(ActivityEntryEntity entity) {
-        return ActivityEntryResponse.builder()
-                .id(entity.getId().toString())
-                .eventType(entity.getEventType())
-                .occurredAt(entity.getOccurredAt())
-                .walkthroughId(entity.getWalkthroughId() != null ? entity.getWalkthroughId().toString() : null)
-                .chapterId(entity.getChapterId() != null ? entity.getChapterId().toString() : null)
-                .commentId(entity.getCommentId() != null ? entity.getCommentId().toString() : null)
-                .visibility(entity.getVisibility())
-                .metadata(entity.getMetadata())
-                .build();
+        return SliceData.of(resultEntries, hasNext);
     }
 }

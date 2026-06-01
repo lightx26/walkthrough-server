@@ -1,9 +1,9 @@
 package com.pet.walkthroughserver.modules.profile.business.services;
 
 import com.pet.walkthroughserver.configs.CacheNames;
-import com.pet.walkthroughserver.modules.profile.presentation.dto.ProfileResponse;
-import com.pet.walkthroughserver.modules.profile.presentation.dto.ProfileReviewingResponse;
-import com.pet.walkthroughserver.modules.profile.presentation.dto.ProfileStatsResponse;
+import com.pet.walkthroughserver.modules.profile.business.models.ProfileData;
+import com.pet.walkthroughserver.modules.profile.business.models.ProfileStats;
+import com.pet.walkthroughserver.modules.profile.business.models.ReviewingEntry;
 import com.pet.walkthroughserver.modules.profile.repository.WalkthroughPinRepository;
 import com.pet.walkthroughserver.modules.user.exceptions.UserNotFoundException;
 import com.pet.walkthroughserver.modules.user.repository.UserEntity;
@@ -19,7 +19,11 @@ import org.springframework.stereotype.Service;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -31,22 +35,22 @@ public class ProfileServiceImpl implements ProfileService {
     private final ReadProgressRepository readProgressRepository;
 
     @Override
-    public ProfileResponse getMyProfile(UUID userId) {
+    public ProfileData getMyProfile(UUID userId) {
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
-        return toProfileResponse(user, true);
+        return toProfileData(user);
     }
 
     @Override
-    public ProfileResponse getByUsername(String username) {
+    public ProfileData getByUsername(String username) {
         UserEntity user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
-        return toProfileResponse(user, false);
+        return toProfileData(user);
     }
 
     @Override
     @Cacheable(value = CacheNames.PROFILE_STATS, key = "#username")
-    public ProfileStatsResponse getStats(String username, UUID viewerId) {
+    public ProfileStats getStats(String username, UUID viewerId) {
         UserEntity user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
 
@@ -65,18 +69,11 @@ public class ProfileServiceImpl implements ProfileService {
         long pinCount = pinRepository.countByUserId(user.getId());
         long reviewCount = readProgressRepository.countByUserId(user.getId());
 
-        return ProfileStatsResponse.builder()
-                .walkthroughs(walkthroughCount)
-                .chapters(chapterCount)
-                .views(viewCount)
-                .comments(commentCount)
-                .pins(pinCount)
-                .reviews(reviewCount)
-                .build();
+        return new ProfileStats(walkthroughCount, chapterCount, viewCount, commentCount, pinCount, reviewCount);
     }
 
     @Override
-    public List<ProfileReviewingResponse> getReviewing(String username, UUID viewerId) {
+    public List<ReviewingEntry> getReviewing(String username, UUID viewerId) {
         UserEntity user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
 
@@ -87,41 +84,49 @@ public class ProfileServiceImpl implements ProfileService {
 
         List<ReadProgressEntity> progressList = readProgressRepository.findRecentlyReviewed(user.getId());
 
-        return progressList.stream().map(rp -> {
-            WalkthroughEntity walkthrough = walkthroughRepository.findById(rp.getWalkthroughId())
-                    .orElseThrow();
-            UserEntity creator = userRepository.findById(walkthrough.getUserId())
-                    .orElseThrow();
-            return ProfileReviewingResponse.builder()
-                    .walkthroughId(rp.getWalkthroughId())
-                    .title(walkthrough.getTitle())
-                    .owner(walkthrough.getOwner())
-                    .repo(walkthrough.getRepo())
-                    .prNumber(walkthrough.getPrNumber())
-                    .status(walkthrough.getStatus())
-                    .creatorDisplayName(creator.getDisplayName())
-                    .creatorAvatarUrl(creator.getAvatarUrl())
-                    .readChapters(rp.getReadChapters())
-                    .totalChapters(rp.getTotalChapters())
-                    .timeSpentSec(rp.getTimeSpentSec())
-                    .lastReadAt(rp.getReadAt())
-                    .build();
-        }).toList();
+        // Batch-load walkthroughs and creators to fix the N+2 query issue
+        Set<UUID> walkthroughIds = progressList.stream()
+                .map(ReadProgressEntity::getWalkthroughId)
+                .collect(Collectors.toSet());
+        Map<UUID, WalkthroughEntity> walkthroughMap = walkthroughRepository.findAllById(walkthroughIds)
+                .stream().collect(Collectors.toMap(WalkthroughEntity::getId, Function.identity()));
+
+        Set<UUID> creatorIds = walkthroughMap.values().stream()
+                .map(WalkthroughEntity::getUserId)
+                .collect(Collectors.toSet());
+        Map<UUID, UserEntity> creatorMap = userRepository.findAllById(creatorIds)
+                .stream().collect(Collectors.toMap(UserEntity::getId, Function.identity()));
+
+        return progressList.stream()
+                .filter(rp -> walkthroughMap.containsKey(rp.getWalkthroughId()))
+                .map(rp -> {
+                    WalkthroughEntity walkthrough = walkthroughMap.get(rp.getWalkthroughId());
+                    UserEntity creator = creatorMap.get(walkthrough.getUserId());
+                    return new ReviewingEntry(
+                            rp.getWalkthroughId(),
+                            walkthrough.getTitle(),
+                            walkthrough.getOwner(),
+                            walkthrough.getRepo(),
+                            walkthrough.getPrNumber(),
+                            walkthrough.getStatus(),
+                            creator != null ? creator.getDisplayName() : null,
+                            creator != null ? creator.getAvatarUrl() : null,
+                            rp.getReadChapters(),
+                            rp.getTotalChapters(),
+                            rp.getTimeSpentSec(),
+                            rp.getReadAt());
+                }).toList();
     }
 
-    private ProfileResponse toProfileResponse(UserEntity user, boolean includeSensitive) {
-        ProfileResponse.ProfileResponseBuilder builder = ProfileResponse.builder()
-                .id(user.getId().toString())
-                .username(user.getUsername())
-                .displayName(user.getDisplayName())
-                .avatarUrl(user.getAvatarUrl())
-                .githubUrl("https://github.com/" + user.getUsername())
-                .joinedAt(user.getCreatedAt());
-
-        if (includeSensitive) {
-            builder.email(user.getEmail());
-        }
-
-        return builder.build();
+    private ProfileData toProfileData(UserEntity user) {
+        return new ProfileData(
+                user.getId(),
+                user.getUsername(),
+                user.getDisplayName(),
+                user.getEmail(),
+                user.getAvatarUrl(),
+                null,
+                "https://github.com/" + user.getUsername(),
+                user.getCreatedAt());
     }
 }

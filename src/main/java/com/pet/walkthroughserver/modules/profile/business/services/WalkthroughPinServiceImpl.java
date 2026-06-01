@@ -1,9 +1,9 @@
 package com.pet.walkthroughserver.modules.profile.business.services;
 
+import com.pet.walkthroughserver.modules.profile.business.models.PinnedWalkthrough;
 import com.pet.walkthroughserver.modules.profile.exceptions.AlreadyPinnedException;
 import com.pet.walkthroughserver.modules.profile.exceptions.PinLimitExceededException;
 import com.pet.walkthroughserver.modules.profile.exceptions.PinNotFoundException;
-import com.pet.walkthroughserver.modules.profile.presentation.dto.PinnedWalkthroughResponse;
 import com.pet.walkthroughserver.modules.profile.presentation.dto.PinWalkthroughRequest;
 import com.pet.walkthroughserver.modules.profile.presentation.dto.ReorderPinsRequest;
 import com.pet.walkthroughserver.modules.profile.repository.WalkthroughPinEntity;
@@ -37,7 +37,7 @@ public class WalkthroughPinServiceImpl implements WalkthroughPinService {
     private final UserRepository userRepository;
 
     @Override
-    public List<PinnedWalkthroughResponse> getPins(String username) {
+    public List<PinnedWalkthrough> getPins(String username) {
         UserEntity user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
 
@@ -48,26 +48,13 @@ public class WalkthroughPinServiceImpl implements WalkthroughPinService {
 
         return pins.stream()
                 .filter(pin -> walkthroughMap.containsKey(pin.getWalkthroughId()))
-                .map(pin -> {
-                    WalkthroughEntity wt = walkthroughMap.get(pin.getWalkthroughId());
-                    return PinnedWalkthroughResponse.builder()
-                            .id(pin.getId().toString())
-                            .walkthroughId(wt.getId().toString())
-                            .title(wt.getTitle())
-                            .owner(wt.getOwner())
-                            .repo(wt.getRepo())
-                            .prNumber(wt.getPrNumber())
-                            .status(wt.getStatus().name())
-                            .sortOrder(pin.getSortOrder())
-                            .pinnedAt(pin.getCreatedAt())
-                            .build();
-                })
+                .map(pin -> toPinnedWalkthrough(pin, walkthroughMap.get(pin.getWalkthroughId())))
                 .toList();
     }
 
     @Override
     @Transactional
-    public PinnedWalkthroughResponse pinWalkthrough(UUID userId, PinWalkthroughRequest request) {
+    public PinnedWalkthrough pinWalkthrough(UUID userId, PinWalkthroughRequest request) {
         WalkthroughEntity walkthrough = walkthroughRepository.findById(request.getWalkthroughId())
                 .orElseThrow(() -> new WalkthroughNotFoundException("Walkthrough not found"));
 
@@ -91,18 +78,7 @@ public class WalkthroughPinServiceImpl implements WalkthroughPinService {
                 .build();
 
         pin = pinRepository.save(pin);
-
-        return PinnedWalkthroughResponse.builder()
-                .id(pin.getId().toString())
-                .walkthroughId(walkthrough.getId().toString())
-                .title(walkthrough.getTitle())
-                .owner(walkthrough.getOwner())
-                .repo(walkthrough.getRepo())
-                .prNumber(walkthrough.getPrNumber())
-                .status(walkthrough.getStatus().name())
-                .sortOrder(pin.getSortOrder())
-                .pinnedAt(pin.getCreatedAt())
-                .build();
+        return toPinnedWalkthrough(pin, walkthrough);
     }
 
     @Override
@@ -148,5 +124,18 @@ public class WalkthroughPinServiceImpl implements WalkthroughPinService {
             remaining.get(i).setSortOrder(i);
         }
         pinRepository.saveAll(remaining);
+    }
+
+    private PinnedWalkthrough toPinnedWalkthrough(WalkthroughPinEntity pin, WalkthroughEntity wt) {
+        return new PinnedWalkthrough(
+                pin.getId(),
+                wt.getId(),
+                wt.getTitle(),
+                wt.getOwner(),
+                wt.getRepo(),
+                wt.getPrNumber(),
+                wt.getStatus(),
+                pin.getSortOrder(),
+                pin.getCreatedAt());
     }
 }

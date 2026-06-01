@@ -6,6 +6,7 @@ import com.pet.walkthroughserver.modules._shared.dto.SliceData;
 import com.pet.walkthroughserver.modules.profile.business.services.ActivityService;
 import com.pet.walkthroughserver.modules.profile.business.services.ProfileService;
 import com.pet.walkthroughserver.modules.profile.business.services.WalkthroughPinService;
+import com.pet.walkthroughserver.modules.profile.presentation.assembler.ProfileAssembler;
 import com.pet.walkthroughserver.modules.profile.presentation.dto.ActivityEntryResponse;
 import com.pet.walkthroughserver.modules.profile.presentation.dto.PinWalkthroughRequest;
 import com.pet.walkthroughserver.modules.profile.presentation.dto.PinnedWalkthroughResponse;
@@ -41,6 +42,7 @@ public class ProfileController {
     private final ProfileService profileService;
     private final WalkthroughPinService pinService;
     private final ActivityService activityService;
+    private final ProfileAssembler profileAssembler;
     private final WalkthroughRepository walkthroughRepository;
     private final WalkthroughPresentationMapper walkthroughMapper;
     private final UserRepository userRepository;
@@ -52,7 +54,8 @@ public class ProfileController {
     public ResponseEntity<DataResponse<ProfileResponse>> getMyProfile(
             @AuthenticationPrincipal AuthUser authUser) {
         UUID userId = UUID.fromString(authUser.getUserId());
-        ProfileResponse response = profileService.getMyProfile(userId);
+        ProfileResponse response = profileAssembler.toResponse(
+                profileService.getMyProfile(userId), true);
         return ResponseEntity.ok(DataResponse.of(response));
     }
 
@@ -61,7 +64,8 @@ public class ProfileController {
     @GetMapping("/v1/users/{username}")
     public ResponseEntity<DataResponse<ProfileResponse>> getByUsername(
             @PathVariable String username) {
-        ProfileResponse response = profileService.getByUsername(username);
+        ProfileResponse response = profileAssembler.toResponse(
+                profileService.getByUsername(username), false);
         return ResponseEntity.ok(DataResponse.of(response));
     }
 
@@ -70,7 +74,8 @@ public class ProfileController {
             @PathVariable String username,
             @AuthenticationPrincipal AuthUser authUser) {
         UUID viewerId = authUser != null ? UUID.fromString(authUser.getUserId()) : null;
-        ProfileStatsResponse response = profileService.getStats(username, viewerId);
+        ProfileStatsResponse response = profileAssembler.toResponse(
+                profileService.getStats(username, viewerId));
         return ResponseEntity.ok(DataResponse.of(response));
     }
 
@@ -103,14 +108,16 @@ public class ProfileController {
             @PathVariable String username,
             @AuthenticationPrincipal AuthUser authUser) {
         UUID viewerId = authUser != null ? UUID.fromString(authUser.getUserId()) : null;
-        List<ProfileReviewingResponse> result = profileService.getReviewing(username, viewerId);
+        List<ProfileReviewingResponse> result = profileAssembler.toReviewingResponseList(
+                profileService.getReviewing(username, viewerId));
         return ResponseEntity.ok(DataResponse.of(ListData.of(result)));
     }
 
     @GetMapping("/v1/users/{username}/pins")
     public ResponseEntity<DataResponse<ListData<PinnedWalkthroughResponse>>> getPins(
             @PathVariable String username) {
-        List<PinnedWalkthroughResponse> pins = pinService.getPins(username);
+        List<PinnedWalkthroughResponse> pins = profileAssembler.toPinnedResponseList(
+                pinService.getPins(username));
         return ResponseEntity.ok(DataResponse.of(ListData.of(pins)));
     }
 
@@ -122,7 +129,8 @@ public class ProfileController {
             @RequestParam(defaultValue = "50") int limit) {
         UUID viewerId = authUser != null ? UUID.fromString(authUser.getUserId()) : null;
         Instant cursor = before != null ? before : Instant.now();
-        SliceData<ActivityEntryResponse> result = activityService.getActivity(username, viewerId, cursor, limit);
+        SliceData<ActivityEntryResponse> result = profileAssembler.toActivitySlice(
+                activityService.getActivity(username, viewerId, cursor, limit));
         return ResponseEntity.ok(DataResponse.of(result));
     }
 
@@ -134,7 +142,8 @@ public class ProfileController {
             @AuthenticationPrincipal AuthUser authUser,
             @Valid @RequestBody PinWalkthroughRequest request) {
         UUID userId = UUID.fromString(authUser.getUserId());
-        PinnedWalkthroughResponse response = pinService.pinWalkthrough(userId, request);
+        PinnedWalkthroughResponse response = profileAssembler.toResponse(
+                pinService.pinWalkthrough(userId, request));
         return ResponseEntity.status(HttpStatus.CREATED).body(DataResponse.of(response));
     }
 

@@ -1,19 +1,19 @@
 package com.pet.walkthroughserver.modules.profile.business.services;
 
-import com.pet.walkthroughserver.modules.profile.presentation.dto.ProfileResponse;
-import com.pet.walkthroughserver.modules.profile.presentation.dto.ProfileReviewingResponse;
-import com.pet.walkthroughserver.modules.profile.presentation.dto.ProfileStatsResponse;
+import com.pet.walkthroughserver.modules.profile.business.models.ProfileData;
+import com.pet.walkthroughserver.modules.profile.business.models.ProfileStats;
+import com.pet.walkthroughserver.modules.profile.business.models.ReviewingEntry;
 
 import java.util.List;
 import java.util.UUID;
 
 public interface ProfileService {
 
-    ProfileResponse getMyProfile(UUID userId);
+    ProfileData getMyProfile(UUID userId);
 
-    ProfileResponse getByUsername(String username);
+    ProfileData getByUsername(String username);
 
-    ProfileStatsResponse getStats(String username, UUID viewerId);
+    ProfileStats getStats(String username, UUID viewerId);
 
-    List<ProfileReviewingResponse> getReviewing(String username, UUID viewerId);
+    List<ReviewingEntry> getReviewing(String username, UUID viewerId);
 }
