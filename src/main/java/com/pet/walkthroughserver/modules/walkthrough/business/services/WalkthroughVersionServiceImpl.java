@@ -24,7 +24,7 @@ import com.pet.walkthroughserver.modules.walkthrough.business.events.Walkthrough
 import com.pet.walkthroughserver.modules.walkthrough.business.models.SnapshotContent;
 import com.pet.walkthroughserver.modules.walkthrough.business.models.StalenessResult;
 import com.pet.walkthroughserver.modules.walkthrough.business.models.VersionDiff;
-import com.pet.walkthroughserver.modules.walkthrough.business.util.DiffLineMapper;
+import com.pet.walkthroughserver.modules._shared.util.UnifiedDiff;
 import com.pet.walkthroughserver.modules.walkthrough.exceptions.WalkthroughAccessDeniedException;
 import com.pet.walkthroughserver.modules.walkthrough.exceptions.WalkthroughNotFoundException;
 import com.pet.walkthroughserver.modules.walkthrough.repository.AnnotationEntity;
@@ -168,7 +168,7 @@ public class WalkthroughVersionServiceImpl implements WalkthroughVersionService 
                 continue;
             }
 
-            boolean valid = newRawPatch != null && DiffLineMapper.isRangeValid(
+            boolean valid = newRawPatch != null && UnifiedDiff.isRangeValid(
                     newRawPatch,
                     annotation.getLineSide(),
                     annotation.getStartLine(),

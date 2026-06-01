@@ -1,22 +1,66 @@
-package com.pet.walkthroughserver.modules.walkthrough.business.util;
+package com.pet.walkthroughserver.modules._shared.util;
 
 import java.util.HashSet;
 import java.util.Set;
 
 /**
- * Utility for extracting valid line numbers from a unified diff (raw_patch).
- * Used to determine whether annotations anchored to specific lines in one version
- * of a diff are still valid in a new version.
+ * Shared utility for parsing unified-diff (raw_patch) content.
+ * Consolidates hunk-header parsing and line-number extraction used
+ * by both the comment and walkthrough modules.
  */
-public final class DiffLineMapper {
+public final class UnifiedDiff {
 
-    private DiffLineMapper() {}
+    private UnifiedDiff() {}
+
+    // ── Position validation (used by comment sync) ──
+
+    /**
+     * Returns {@code true} if the given {@code diffPosition} falls within the patch.
+     * Position counting starts at 1 from the first {@code @@} hunk header, and every
+     * line (header, context, added, deleted) increments the counter.
+     */
+    public static boolean isValidPosition(String rawPatch, int diffPosition) {
+        if (rawPatch == null || rawPatch.isBlank()) return false;
+
+        int counter = 0;
+        boolean started = false;
+
+        for (String line : rawPatch.split("\n")) {
+            if (line.startsWith("@@")) {
+                started = true;
+            }
+            if (started) {
+                counter++;
+                if (counter == diffPosition) return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Returns the total number of countable lines in the patch (max valid position).
+     */
+    public static int maxPosition(String rawPatch) {
+        if (rawPatch == null || rawPatch.isBlank()) return 0;
+
+        int counter = 0;
+        boolean started = false;
+
+        for (String line : rawPatch.split("\n")) {
+            if (line.startsWith("@@")) started = true;
+            if (started) counter++;
+        }
+        return counter;
+    }
+
+    // ── Line-number extraction (used by walkthrough versioning) ──
 
     /**
      * Extracts the set of line numbers present on the given side of a unified diff patch.
      *
      * @param rawPatch the unified diff string
-     * @param side     "new" for added/context lines on the new side, "old" for removed/context lines on the old side
+     * @param side     "new" for added/context lines on the new side,
+     *                 "old" for removed/context lines on the old side
      * @return set of 1-based line numbers present on that side
      */
     public static Set<Integer> extractLineNumbers(String rawPatch, String side) {
@@ -62,7 +106,7 @@ public final class DiffLineMapper {
     }
 
     /**
-     * Checks whether a line range [startLine, endLine] is fully present on the given side of the diff.
+     * Checks whether a line range [startLine, endLine] is fully present on the given side.
      */
     public static boolean isRangeValid(String rawPatch, String side, int startLine, int endLine) {
         Set<Integer> validLines = extractLineNumbers(rawPatch, side);
@@ -72,12 +116,14 @@ public final class DiffLineMapper {
         return true;
     }
 
+    // ── Shared hunk-header parser ──
+
     /**
-     * Parses a hunk header like "@@ -10,5 +20,7 @@" to extract old and new starting line numbers.
-     * Returns [oldStart, newStart].
+     * Parses a hunk header like "{@code @@ -10,5 +20,7 @@}" to extract starting line numbers.
+     *
+     * @return {@code [oldStart, newStart]}
      */
     static int[] parseHunkHeader(String header) {
-        // Format: @@ -oldStart[,oldCount] +newStart[,newCount] @@
         int oldStart = 1;
         int newStart = 1;
 
@@ -93,10 +139,10 @@ public final class DiffLineMapper {
             String[] newTokens = newPart.split("\\s+");
 
             if (oldTokens.length > 0) {
-                try { oldStart = Integer.parseInt(oldTokens[0]); } catch (NumberFormatException ignored) {}
+                try { oldStart = Integer.parseInt(oldTokens[0]); } catch (NumberFormatException e) { /* malformed hunk */ }
             }
             if (newTokens.length > 0) {
-                try { newStart = Integer.parseInt(newTokens[0]); } catch (NumberFormatException ignored) {}
+                try { newStart = Integer.parseInt(newTokens[0]); } catch (NumberFormatException e) { /* malformed hunk */ }
             }
         }
 

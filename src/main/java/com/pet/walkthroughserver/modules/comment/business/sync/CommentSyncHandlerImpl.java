@@ -5,7 +5,7 @@ import java.util.Optional;
 import org.springframework.stereotype.Component;
 
 import com.pet.walkthroughserver.modules.comment.business.services.GitHubCommentService;
-import com.pet.walkthroughserver.modules.comment.business.util.DiffPositionParser;
+import com.pet.walkthroughserver.modules._shared.util.UnifiedDiff;
 import com.pet.walkthroughserver.modules.comment.repository.CommentEntity;
 import com.pet.walkthroughserver.modules.comment.repository.CommentRepository;
 import com.pet.walkthroughserver.modules.comment.repository.SyncStatus;
@@ -84,7 +84,7 @@ public class CommentSyncHandlerImpl implements CommentSyncHandler {
         WalkthroughFileEntity file = fileOpt.get();
 
         if (file.getRawPatch() == null ||
-                !DiffPositionParser.isValidPosition(file.getRawPatch(), comment.getDiffPosition())) {
+                !UnifiedDiff.isValidPosition(file.getRawPatch(), comment.getDiffPosition())) {
             log.warn("diff_position {} is no longer valid in raw_patch for comment {} — marking FAILED (OUTDATED_DIFF)",
                     comment.getDiffPosition(), comment.getId());
             comment.setSyncStatus(SyncStatus.FAILED);
