@@ -1,7 +1,6 @@
 package com.pet.walkthroughserver.modules.githubpr.presentation;
 
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -21,6 +20,7 @@ import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubCommit;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequest;
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequestFile;
 import com.pet.walkthroughserver.modules.githubpr.business.services.GitHubPrService;
+import com.pet.walkthroughserver.modules.githubpr.presentation.assembler.GitHubPrAssembler;
 import com.pet.walkthroughserver.modules.githubpr.presentation.dto.CommitResponse;
 import com.pet.walkthroughserver.modules.githubpr.presentation.dto.FileChangeResponse;
 import com.pet.walkthroughserver.modules.githubpr.presentation.dto.PullRequestResponse;
@@ -28,7 +28,6 @@ import com.pet.walkthroughserver.modules.githubpr.presentation.dto.RecentPullReq
 import com.pet.walkthroughserver.modules.githubpr.presentation.mapper.CommitPresentationMapper;
 import com.pet.walkthroughserver.modules.githubpr.presentation.mapper.FileChangePresentationMapper;
 import com.pet.walkthroughserver.modules.githubpr.presentation.mapper.PullRequestPresentationMapper;
-import com.pet.walkthroughserver.modules.walkthrough.business.services.WalkthroughService;
 import com.pet.walkthroughserver.security.AuthUser;
 
 import lombok.RequiredArgsConstructor;
@@ -39,7 +38,7 @@ import lombok.RequiredArgsConstructor;
 public class GitHubPrController {
 
     private final GitHubPrService gitHubPrService;
-    private final WalkthroughService walkthroughService;
+    private final GitHubPrAssembler gitHubPrAssembler;
     private final PullRequestPresentationMapper pullRequestMapper;
     private final CommitPresentationMapper commitMapper;
     private final FileChangePresentationMapper fileChangeMapper;
@@ -55,13 +54,7 @@ public class GitHubPrController {
             @RequestParam(defaultValue = "30") int perPage) {
         UUID userId = UUID.fromString(authUser.getUserId());
         List<GitHubPullRequest> prs = gitHubPrService.getPullRequests(userId, owner, repo, state, page, perPage);
-        List<PullRequestResponse> responses = pullRequestMapper.toResponseList(prs);
-        List<Integer> prNumbers = responses.stream()
-                .map(PullRequestResponse::getNumber)
-                .toList();
-        Map<Integer, Long> countMap = walkthroughService.countByPrs(owner, repo, prNumbers, userId);
-        responses.forEach(pr -> pr.setWalkthroughsCount(
-                countMap.getOrDefault(pr.getNumber(), 0L)));
+        List<PullRequestResponse> responses = gitHubPrAssembler.toResponseWithCounts(prs, owner, repo, userId);
         return ResponseEntity.ok(DataResponse.of(ListData.of(responses)));
     }
 

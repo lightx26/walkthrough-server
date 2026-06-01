@@ -5,11 +5,11 @@ import com.pet.walkthroughserver.modules._shared.infra.github.exceptions.GitHubR
 import com.pet.walkthroughserver.modules._shared.infra.github.dto.GitHubPullRequest;
 import com.pet.walkthroughserver.modules._shared.infra.jwt.TokenService;
 import com.pet.walkthroughserver.modules.githubpr.business.services.GitHubPrService;
+import com.pet.walkthroughserver.modules.githubpr.presentation.assembler.GitHubPrAssembler;
 import com.pet.walkthroughserver.modules.githubpr.presentation.dto.PullRequestResponse;
 import com.pet.walkthroughserver.modules.githubpr.presentation.mapper.CommitPresentationMapper;
 import com.pet.walkthroughserver.modules.githubpr.presentation.mapper.FileChangePresentationMapper;
 import com.pet.walkthroughserver.modules.githubpr.presentation.mapper.PullRequestPresentationMapper;
-import com.pet.walkthroughserver.modules.walkthrough.business.services.WalkthroughService;
 import com.pet.walkthroughserver.security.AuthUser;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,7 +40,7 @@ class GitHubPrControllerTest {
     private GitHubPrService gitHubPrService;
 
     @MockitoBean
-    private WalkthroughService walkthroughService;
+    private GitHubPrAssembler gitHubPrAssembler;
 
     @MockitoBean
     private PullRequestPresentationMapper pullRequestMapper;
@@ -68,7 +68,8 @@ class GitHubPrControllerTest {
 
         when(gitHubPrService.getPullRequests(eq(USER_ID), eq("owner"), eq("repo"), eq("open"), eq(1), eq(30)))
                 .thenReturn(List.of(ghPr));
-        when(pullRequestMapper.toResponseList(anyList())).thenReturn(List.of(prResponse));
+        when(gitHubPrAssembler.toResponseWithCounts(anyList(), eq("owner"), eq("repo"), eq(USER_ID)))
+                .thenReturn(List.of(prResponse));
 
         mockMvc.perform(get("/v1/github/repos/owner/repo/pulls")
                         .with(authentication(authToken())))
