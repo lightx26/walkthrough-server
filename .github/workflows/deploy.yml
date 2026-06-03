@@ -64,7 +64,7 @@ jobs:
           envs: GHCR_TOKEN,GITHUB_ACTOR
           script: |
             echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
-            cd ~/app
+            cd ~/walkthrough
             docker compose pull server
             docker compose up -d --no-deps server
             docker image prune -f
