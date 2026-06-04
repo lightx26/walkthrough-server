@@ -32,6 +32,12 @@ public class RabbitMQConfig {
     public static final String ACTIVITY_SYNC_DLX = "walkthrough.activity.sync.dlx";
     public static final String ACTIVITY_SYNC_DLQ = "walkthrough.activity.sync.dlq";
 
+    // ── Risk scan events ──
+    public static final String RISK_SCAN_QUEUE = "walkthrough.risk.scan.q";
+    public static final String RISK_SCAN_DLX   = "walkthrough.risk.scan.dlx";
+    public static final String RISK_SCAN_DLQ   = "walkthrough.risk.scan.dlq";
+    public static final String RISK_SCAN_ROUTING_KEY = "risk.scan.requested";
+
     @Bean
     Queue commentQueue() {
         return new Queue(COMMENT_QUEUE, true);
@@ -110,6 +116,36 @@ public class RabbitMQConfig {
     @Bean
     Binding activitySyncBinding(Queue activitySyncQueue, TopicExchange walkthroughEventsExchange) {
         return BindingBuilder.bind(activitySyncQueue).to(walkthroughEventsExchange).with(WALKTHROUGH_EVENTS_ROUTING_KEY);
+    }
+
+    // ── Risk scan topology ──
+
+    @Bean
+    DirectExchange riskScanDlx() {
+        return new DirectExchange(RISK_SCAN_DLX);
+    }
+
+    @Bean
+    Queue riskScanDlq() {
+        return QueueBuilder.durable(RISK_SCAN_DLQ).build();
+    }
+
+    @Bean
+    Binding riskScanDlqBinding(Queue riskScanDlq, DirectExchange riskScanDlx) {
+        return BindingBuilder.bind(riskScanDlq).to(riskScanDlx).with(RISK_SCAN_DLQ);
+    }
+
+    @Bean
+    Queue riskScanQueue() {
+        return QueueBuilder.durable(RISK_SCAN_QUEUE)
+                .withArgument("x-dead-letter-exchange", RISK_SCAN_DLX)
+                .withArgument("x-dead-letter-routing-key", RISK_SCAN_DLQ)
+                .build();
+    }
+
+    @Bean
+    Binding riskScanBinding(Queue riskScanQueue, TopicExchange walkthroughEventsExchange) {
+        return BindingBuilder.bind(riskScanQueue).to(walkthroughEventsExchange).with(RISK_SCAN_ROUTING_KEY);
     }
 
     @Bean
