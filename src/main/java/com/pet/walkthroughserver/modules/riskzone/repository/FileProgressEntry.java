@@ -1,3 +1,8 @@
 package com.pet.walkthroughserver.modules.riskzone.repository;
 
-public record FileProgressEntry(String filename, String status) {}
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+public record FileProgressEntry(
+        @JsonProperty("filename") String filename,
+        @JsonProperty("status")   String status
+) {}

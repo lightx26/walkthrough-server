@@ -4,6 +4,8 @@ import com.pet.walkthroughserver.modules._shared.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -40,8 +42,8 @@ public class RiskScanEntity extends BaseEntity {
     @Builder.Default
     private Integer analyzedFiles = 0;
 
-    @Convert(converter = FileProgressConverter.class)
-    @Column(name = "file_progress", columnDefinition = "JSONB")
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "file_progress", columnDefinition = "jsonb")
     @Builder.Default
     private List<FileProgressEntry> fileProgress = new ArrayList<>();
 
