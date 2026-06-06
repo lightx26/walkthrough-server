@@ -3,9 +3,11 @@ package com.pet.walkthroughserver.exceptionHandlers;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.catalina.connector.ClientAbortException;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotWritableException;
 import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -76,6 +78,16 @@ public class GlobalExceptionHandler {
                         "Authentication required"));
     }
 
+    @ExceptionHandler(HttpMessageNotWritableException.class)
+    public ResponseEntity<Void> handleMessageNotWritable(HttpMessageNotWritableException ex) {
+        if (isCausedByClientAbort(ex)) {
+            log.debug("Client disconnected before response could be fully written");
+            return null;
+        }
+        log.error("Could not serialize HTTP response", ex);
+        return ResponseEntity.internalServerError().build();
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnexpected(Exception ex) {
         log.error("Unexpected error", ex);
@@ -84,5 +96,13 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of(
                         "INTERNAL_SERVER_ERROR",
                         "Internal server error"));
+    }
+
+    private boolean isCausedByClientAbort(Throwable t) {
+        while (t != null) {
+            if (t instanceof ClientAbortException) return true;
+            t = t.getCause();
+        }
+        return false;
     }
 }
