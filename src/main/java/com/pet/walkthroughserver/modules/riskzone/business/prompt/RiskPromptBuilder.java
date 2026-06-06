@@ -2,6 +2,7 @@ package com.pet.walkthroughserver.modules.riskzone.business.prompt;
 
 import com.pet.walkthroughserver.modules._shared.infra.ai.LlmRequest;
 import com.pet.walkthroughserver.modules._shared.util.UnifiedDiff.DiffWindow;
+import com.pet.walkthroughserver.modules.riskzone.business.models.ChapterContext;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -23,6 +24,10 @@ public class RiskPromptBuilder {
             - REMOVED_TESTS: deleted or disabled test cases
             - OTHER: any other significant risk not covered above
 
+            Use the chapter context (title, description, and the list of files changed together)
+            to understand the intent of the change. It is provided only as background — report
+            risks for the FILE UNDER REVIEW, anchoring positions to that file's diff windows.
+
             Respond with a JSON array of risk objects. Each object must have:
             {
               "risk_level": "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
@@ -39,8 +44,49 @@ public class RiskPromptBuilder {
             Only return the JSON array, nothing else.
             """;
 
-    public LlmRequest build(String filename, String fileStatus, List<DiffWindow> windows) {
+    private static final String CROSS_FILE_SYSTEM_PROMPT = """
+            You are a senior code reviewer performing a CROSS-FILE integration review of a single
+            chapter of related changes. You are given the chapter intent, the list of files changed
+            together, each file's hunk headers, and the per-file risks already found.
+
+            Your job is to find risks that only become visible when looking across files together,
+            for example:
+            - a caller changed in one file but its callee/contract in another file was not updated
+            - a signature/return-type/enum change in one file with stale usages in sibling files
+            - migrations or schema changes not matched by corresponding code changes (or vice versa)
+            - inconsistent validation, auth, or error handling across files that should agree
+            - removed code in one file still referenced by another
+
+            Do NOT repeat the per-file risks already listed. Only report NEW cross-file risks.
+
+            Respond with a JSON array of risk objects. Each object must have:
+            {
+              "filename": "the file this risk primarily manifests in (must be one of the listed files)",
+              "risk_level": "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
+              "category": one of the category names above,
+              "title": "Short title (max 80 chars)",
+              "description": "Detailed explanation, naming the other file(s) involved",
+              "suggestion": "Concrete remediation suggestion",
+              "start_position": null,
+              "end_position": null,
+              "line_side": null
+            }
+
+            Return an empty array [] if no cross-file risks are found. Do not include markdown fences.
+            Only return the JSON array, nothing else.
+            """;
+
+    /**
+     * Per-file (map) prompt. Prepends a chapter-context block so the model understands the
+     * intent of the change and which sibling files participate, then the file's diff windows.
+     */
+    public LlmRequest build(String filename, String fileStatus, List<DiffWindow> windows,
+                            ChapterContext context, int maxContextChars) {
         StringBuilder user = new StringBuilder();
+
+        appendContext(user, context, filename, maxContextChars);
+
+        user.append("=== File under review ===\n");
         user.append("File: ").append(filename).append('\n');
         user.append("Status: ").append(fileStatus).append('\n');
         user.append("Changed windows:\n\n");
@@ -56,4 +102,93 @@ public class RiskPromptBuilder {
 
         return LlmRequest.of(SYSTEM_PROMPT, user.toString());
     }
+
+    /**
+     * Chapter-level (reduce) prompt. Sees a compact digest of every scanned file — hunk
+     * headers and the titles of risks already found — instead of full diffs, keeping the
+     * input bounded while enabling cross-file reasoning.
+     */
+    public LlmRequest buildChapterReduce(ChapterContext context, List<ChapterFileDigest> digests,
+                                         int maxContextChars) {
+        StringBuilder user = new StringBuilder();
+
+        appendContext(user, context, null, maxContextChars);
+
+        user.append("=== Files changed together in this chapter ===\n\n");
+        for (ChapterFileDigest d : digests) {
+            user.append("File: ").append(d.filename())
+                    .append(" (").append(d.status()).append(")\n");
+            user.append("Hunk headers:\n");
+            if (d.hunkHeaders() == null || d.hunkHeaders().isBlank()) {
+                user.append("  (none)\n");
+            } else {
+                user.append(d.hunkHeaders()).append('\n');
+            }
+            user.append("Per-file risks already found:");
+            if (d.existingRiskTitles().isEmpty()) {
+                user.append(" none\n");
+            } else {
+                user.append('\n');
+                for (String t : d.existingRiskTitles()) {
+                    user.append("  - ").append(t).append('\n');
+                }
+            }
+            user.append('\n');
+        }
+
+        return LlmRequest.of(CROSS_FILE_SYSTEM_PROMPT, user.toString());
+    }
+
+    private void appendContext(StringBuilder user, ChapterContext context, String fileUnderReview,
+                               int maxContextChars) {
+        if (context == null) return;
+
+        user.append("=== Chapter context ===\n");
+        if (notBlank(context.walkthroughTitle())) {
+            user.append("Walkthrough: ").append(context.walkthroughTitle()).append('\n');
+        }
+        if (notBlank(context.walkthroughDescription())) {
+            user.append("Walkthrough description: ")
+                    .append(truncate(context.walkthroughDescription(), maxContextChars)).append('\n');
+        }
+        if (notBlank(context.chapterTitle())) {
+            user.append("Chapter: ").append(context.chapterTitle()).append('\n');
+        }
+        if (notBlank(context.chapterDescription())) {
+            user.append("Chapter description: ")
+                    .append(truncate(context.chapterDescription(), maxContextChars)).append('\n');
+        }
+        if (context.siblingFiles() != null && !context.siblingFiles().isEmpty()) {
+            user.append("Files changed together in this chapter:\n");
+            for (ChapterContext.FileRef f : context.siblingFiles()) {
+                user.append("  - ").append(f.filename())
+                        .append(" (").append(f.status()).append(')');
+                if (fileUnderReview != null && fileUnderReview.equals(f.filename())) {
+                    user.append("  <-- file under review");
+                }
+                user.append('\n');
+            }
+        }
+        user.append('\n');
+    }
+
+    private static boolean notBlank(String s) {
+        return s != null && !s.isBlank();
+    }
+
+    private static String truncate(String s, int max) {
+        if (max <= 0 || s.length() <= max) return s;
+        return s.substring(0, max) + "…[truncated]";
+    }
+
+    /**
+     * Compact per-file summary fed to the reduce pass: hunk headers (structure) plus the
+     * titles of risks already detected (semantics), without the full diff.
+     */
+    public record ChapterFileDigest(
+            String filename,
+            String status,
+            String hunkHeaders,
+            List<String> existingRiskTitles
+    ) {}
 }

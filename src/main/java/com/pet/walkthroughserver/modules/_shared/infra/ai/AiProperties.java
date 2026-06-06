@@ -35,5 +35,12 @@ public class AiProperties {
         private int maxFiles = 30;
         private int windowContextLines = 3;
         private int maxWindowChars = 6000;
+
+        /** Master switch for the chapter-level (reduce) cross-file analysis pass. */
+        private boolean crossFileAnalysis = true;
+        /** Skip the reduce pass for chapters with fewer than this many scanned files. */
+        private int minFilesForCrossFile = 2;
+        /** Truncate each walkthrough/chapter description injected as context. */
+        private int maxContextChars = 1500;
     }
 }
