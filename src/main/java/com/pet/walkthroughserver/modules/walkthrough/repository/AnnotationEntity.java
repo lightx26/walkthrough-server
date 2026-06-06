@@ -1,5 +1,6 @@
 package com.pet.walkthroughserver.modules.walkthrough.repository;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.pet.walkthroughserver.modules._shared.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -25,6 +26,7 @@ import lombok.experimental.SuperBuilder;
 @AllArgsConstructor
 public class AnnotationEntity extends BaseEntity {
 
+    @JsonBackReference("file-annotations")
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "walkthrough_file_id", nullable = false)
     private WalkthroughFileEntity walkthroughFile;

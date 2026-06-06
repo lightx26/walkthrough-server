@@ -1,5 +1,6 @@
 package com.pet.walkthroughserver.modules.walkthrough.repository;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.pet.walkthroughserver.modules._shared.entity.BaseEntity;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -25,6 +26,7 @@ import java.util.List;
 @AllArgsConstructor
 public class ChapterEntity extends BaseEntity {
 
+    @JsonBackReference("walkthrough-chapters")
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "walkthrough_id", nullable = false)
     private WalkthroughEntity walkthrough;
