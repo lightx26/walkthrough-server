@@ -3,6 +3,7 @@ package com.pet.walkthroughserver.modules.walkthrough.business.services;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -13,6 +14,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import jakarta.persistence.EntityManager;
+
 import com.pet.walkthroughserver.configs.CacheNames;
 import com.pet.walkthroughserver.modules._shared.repository.Repositories;
 import com.pet.walkthroughserver.modules._shared.security.OwnershipGuard;
@@ -22,11 +25,15 @@ import com.pet.walkthroughserver.modules._shared.messaging.DomainEvent;
 import com.pet.walkthroughserver.modules._shared.messaging.DomainEventPublisher;
 import com.pet.walkthroughserver.modules.comment.repository.CommentRepository;
 import com.pet.walkthroughserver.modules.githubpr.business.services.GitHubPrService;
+import com.pet.walkthroughserver.modules.riskzone.repository.RiskScanRepository;
+import com.pet.walkthroughserver.modules.riskzone.repository.RiskZoneRepository;
+import com.pet.walkthroughserver.modules.walkthrough.business.cache.WalkthroughCacheEvictor;
 import com.pet.walkthroughserver.modules.walkthrough.business.events.WalkthroughCreatedEvent;
 import com.pet.walkthroughserver.modules.walkthrough.business.events.WalkthroughDeletedEvent;
 import com.pet.walkthroughserver.modules.walkthrough.business.events.WalkthroughUpdatedEvent;
-import com.pet.walkthroughserver.modules.walkthrough.business.cache.WalkthroughCacheEvictor;
+import com.pet.walkthroughserver.modules.walkthrough.business.util.PrFileConsistencyChecker;
 import com.pet.walkthroughserver.modules.walkthrough.exceptions.WalkthroughAccessDeniedException;
+import com.pet.walkthroughserver.modules.walkthrough.exceptions.WalkthroughInvalidForPublishException;
 import com.pet.walkthroughserver.modules.walkthrough.exceptions.WalkthroughNotFoundException;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.AnnotationRequest;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.ChapterRequest;
@@ -41,17 +48,21 @@ import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughRepos
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughStatus;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class WalkthroughServiceImpl implements WalkthroughService {
 
     private final WalkthroughRepository walkthroughRepository;
-    private final WalkthroughSnapshotService snapshotService;
     private final GitHubPrService gitHubPrService;
     private final DomainEventPublisher eventPublisher;
     private final CommentRepository commentRepository;
     private final WalkthroughCacheEvictor cacheEvictor;
+    private final RiskScanRepository riskScanRepository;
+    private final RiskZoneRepository riskZoneRepository;
+    private final EntityManager entityManager;
 
     @Override
     @Transactional
@@ -75,17 +86,41 @@ public class WalkthroughServiceImpl implements WalkthroughService {
                 .build();
 
         buildChapters(walkthrough, request.getChapters(), prFilesByName);
+
+        if (request.getStatus() == WalkthroughStatus.PUBLISHED) {
+            validateForPublish(userId, walkthrough.getOwner(), walkthrough.getRepo(),
+                    walkthrough.getPrNumber(), request.getChapters());
+        }
+
         WalkthroughEntity saved = walkthroughRepository.save(walkthrough);
         cacheEvictor.onWrite(userId, saved.getId());
+
+        if (saved.getStatus() == WalkthroughStatus.PUBLISHED) {
+            archiveOtherPublished(saved);
+        }
+
         publishAfterCommit(new WalkthroughCreatedEvent(saved.getId(), Instant.now()));
         return saved;
     }
 
     @Override
-    public List<WalkthroughEntity> listByPr(String owner, String repo, Integer prNumber, UUID requestingUserId) {
-        return walkthroughRepository.findByOwnerAndRepoAndPrNumberOrderByCreatedAtDesc(owner, repo, prNumber)
-                .stream()
-                .filter(wt -> wt.getStatus() == WalkthroughStatus.PUBLISHED || wt.getUserId().equals(requestingUserId))
+    @Transactional
+    public List<WalkthroughEntity> listByPr(UUID requestingUserId, String owner, String repo, Integer prNumber) {
+        List<WalkthroughEntity> all = walkthroughRepository
+                .findByOwnerAndRepoAndPrNumberOrderByCreatedAtDesc(owner, repo, prNumber);
+
+        List<WalkthroughEntity> published = all.stream()
+                .filter(wt -> wt.getStatus() == WalkthroughStatus.PUBLISHED)
+                .toList();
+
+        if (!published.isEmpty()) {
+            runConsistencyCheck(requestingUserId, owner, repo, prNumber, published);
+        }
+
+        return all.stream()
+                .filter(wt -> wt.getStatus() == WalkthroughStatus.PUBLISHED
+                        || wt.getStatus() == WalkthroughStatus.OUTDATED
+                        || wt.getUserId().equals(requestingUserId))
                 .toList();
     }
 
@@ -102,17 +137,37 @@ public class WalkthroughServiceImpl implements WalkthroughService {
         WalkthroughEntity walkthrough = Repositories.orThrow(walkthroughRepository.findByIdWithUser(id),
                 () -> new WalkthroughNotFoundException("Walkthrough not found"));
         boolean isOwner = walkthrough.getUserId().equals(requestingUserId);
-        if (!isOwner && walkthrough.getStatus() != WalkthroughStatus.PUBLISHED) {
+        if (!isOwner
+                && walkthrough.getStatus() != WalkthroughStatus.PUBLISHED
+                && walkthrough.getStatus() != WalkthroughStatus.OUTDATED) {
             throw new WalkthroughNotFoundException("Walkthrough not found");
         }
-        // Force-initialize lazy collections while the session is open so that
-        // the presentation mapper (and any cached entity) can safely traverse
-        // chapters → files → annotations after the transaction completes.
         for (ChapterEntity chapter : walkthrough.getChapters()) {
             for (WalkthroughFileEntity file : chapter.getFiles()) {
                 file.getAnnotations().size();
             }
         }
+        return walkthrough;
+    }
+
+    @Override
+    @Transactional
+    public WalkthroughEntity syncCheck(UUID requestingUserId, UUID walkthroughId) {
+        WalkthroughEntity walkthrough = Repositories.orThrow(walkthroughRepository.findById(walkthroughId),
+                () -> new WalkthroughNotFoundException("Walkthrough not found"));
+
+        boolean isOwner = walkthrough.getUserId().equals(requestingUserId);
+        if (!isOwner
+                && walkthrough.getStatus() != WalkthroughStatus.PUBLISHED
+                && walkthrough.getStatus() != WalkthroughStatus.OUTDATED) {
+            throw new WalkthroughNotFoundException("Walkthrough not found");
+        }
+
+        if (walkthrough.getStatus() == WalkthroughStatus.PUBLISHED) {
+            runConsistencyCheck(requestingUserId, walkthrough.getOwner(), walkthrough.getRepo(),
+                    walkthrough.getPrNumber(), List.of(walkthrough));
+        }
+
         return walkthrough;
     }
 
@@ -127,20 +182,35 @@ public class WalkthroughServiceImpl implements WalkthroughService {
                 .stream()
                 .collect(Collectors.toMap(GitHubPullRequestFile::getFilename, Function.identity(), (a, b) -> a));
 
+        if (request.getStatus() == WalkthroughStatus.PUBLISHED) {
+            validateForPublish(userId, walkthrough.getOwner(), walkthrough.getRepo(),
+                    walkthrough.getPrNumber(), request.getChapters());
+        }
+
+        // Capture risk zone → filename mapping before chapters are cleared.
+        // Clearing chapters cascade-deletes walkthrough_files, which triggers ON DELETE SET NULL
+        // on risk_zones.walkthrough_file_id. We re-link zones to new file IDs after rebuild.
+        Map<UUID, String> riskZoneFilenameMap = captureRiskZoneFilenameMap(walkthroughId, walkthrough);
+
         walkthrough.setTitle(request.getTitle());
         walkthrough.setDescription(request.getDescription());
         walkthrough.setStatus(request.getStatus());
+        walkthrough.setOutdatedReason(null);
         walkthrough.getChapters().clear();
         buildChapters(walkthrough, request.getChapters(), prFilesByName);
 
         WalkthroughEntity saved = walkthroughRepository.save(walkthrough);
+        // Flush explicitly so the DELETE of old files (→ SET NULL on risk_zones) and
+        // INSERT of new files are committed to the DB before the relink UPDATE runs.
+        entityManager.flush();
+
+        relinkRiskZones(saved, riskZoneFilenameMap);
+
         cacheEvictor.onWrite(userId, saved.getId());
         publishAfterCommit(new WalkthroughUpdatedEvent(saved.getId(), Instant.now()));
 
-        // When publishing, archive any other published walkthroughs in the same PR
         if (saved.getStatus() == WalkthroughStatus.PUBLISHED) {
             archiveOtherPublished(saved);
-            captureSnapshot(saved);
         }
 
         return saved;
@@ -208,6 +278,59 @@ public class WalkthroughServiceImpl implements WalkthroughService {
 
     // ── Private helpers ──
 
+    private void runConsistencyCheck(UUID requestingUserId, String owner, String repo, Integer prNumber,
+                                     List<WalkthroughEntity> publishedWalkthroughs) {
+        Set<String> prFilenames;
+        try {
+            prFilenames = gitHubPrService.getPullRequestFiles(requestingUserId, owner, repo, prNumber)
+                    .stream()
+                    .map(GitHubPullRequestFile::getFilename)
+                    .collect(Collectors.toSet());
+        } catch (Exception e) {
+            log.warn("GitHub API call failed during PR consistency check for {}/{} PR#{}: {}",
+                    owner, repo, prNumber, e.getMessage());
+            return;
+        }
+
+        for (WalkthroughEntity walkthrough : publishedWalkthroughs) {
+            PrFileConsistencyChecker.Result result = PrFileConsistencyChecker.check(walkthrough, prFilenames);
+            if (!result.consistent()) {
+                walkthrough.setStatus(WalkthroughStatus.OUTDATED);
+                walkthrough.setOutdatedReason(result.outdatedReason());
+                walkthroughRepository.save(walkthrough);
+                cacheEvictor.onWrite(walkthrough.getUserId(), walkthrough.getId());
+                log.info("Walkthrough {} marked OUTDATED: files diverged from PR {}/{} #{}",
+                        walkthrough.getId(), owner, repo, prNumber);
+            }
+        }
+    }
+
+    private void validateForPublish(UUID userId, String owner, String repo, Integer prNumber,
+                                    List<ChapterRequest> chapters) {
+        Set<String> candidateFilenames = chapters.stream()
+                .flatMap(ch -> ch.getFiles().stream())
+                .map(WalkthroughFileRequest::getFilename)
+                .collect(Collectors.toSet());
+
+        Set<String> prFilenames;
+        try {
+            prFilenames = gitHubPrService.getPullRequestFiles(userId, owner, repo, prNumber)
+                    .stream()
+                    .map(GitHubPullRequestFile::getFilename)
+                    .collect(Collectors.toSet());
+        } catch (Exception e) {
+            log.warn("GitHub API call failed during publish validation for {}/{} PR#{}: {}",
+                    owner, repo, prNumber, e.getMessage());
+            throw new WalkthroughInvalidForPublishException(
+                    "Cannot verify PR file set. GitHub API is unavailable. Please try again.");
+        }
+
+        PrFileConsistencyChecker.Result result = PrFileConsistencyChecker.check(candidateFilenames, prFilenames);
+        if (!result.consistent()) {
+            throw new WalkthroughInvalidForPublishException(result.outdatedReason());
+        }
+    }
+
     private void archiveOtherPublished(WalkthroughEntity published) {
         List<WalkthroughEntity> others = walkthroughRepository
                 .findByOwnerAndRepoAndPrNumberAndStatus(
@@ -216,13 +339,45 @@ public class WalkthroughServiceImpl implements WalkthroughService {
         for (WalkthroughEntity other : others) {
             if (!other.getId().equals(published.getId())) {
                 other.setStatus(WalkthroughStatus.OUTDATED);
+                other.setOutdatedReason("A newer walkthrough was published for this PR.");
                 walkthroughRepository.save(other);
             }
         }
     }
 
-    private void captureSnapshot(WalkthroughEntity walkthrough) {
-        snapshotService.captureSnapshot(walkthrough);
+    private Map<UUID, String> captureRiskZoneFilenameMap(UUID walkthroughId, WalkthroughEntity walkthrough) {
+        // Build file ID → filename from existing chapters (before any modification)
+        Map<UUID, String> fileIdToFilename = walkthrough.getChapters().stream()
+                .flatMap(ch -> ch.getFiles().stream())
+                .collect(Collectors.toMap(WalkthroughFileEntity::getId, WalkthroughFileEntity::getFilename));
+
+        if (fileIdToFilename.isEmpty()) return Map.of();
+
+        return riskScanRepository.findTopByWalkthroughIdOrderByCreatedAtDesc(walkthroughId)
+                .map(scan -> scan.getRiskZones().stream()
+                        .filter(z -> z.getWalkthroughFileId() != null
+                                && fileIdToFilename.containsKey(z.getWalkthroughFileId()))
+                        .collect(Collectors.toMap(
+                                z -> z.getId(),
+                                z -> fileIdToFilename.get(z.getWalkthroughFileId()))))
+                .orElse(Map.of());
+    }
+
+    private void relinkRiskZones(WalkthroughEntity saved, Map<UUID, String> riskZoneFilenameMap) {
+        if (riskZoneFilenameMap.isEmpty()) return;
+
+        Map<String, UUID> newFilenameToFileId = saved.getChapters().stream()
+                .flatMap(ch -> ch.getFiles().stream())
+                .collect(Collectors.toMap(WalkthroughFileEntity::getFilename, WalkthroughFileEntity::getId, (a, b) -> a));
+
+        riskZoneFilenameMap.forEach((zoneId, filename) -> {
+            UUID newFileId = newFilenameToFileId.get(filename);
+            if (newFileId != null) {
+                // JPQL @Modifying forces a flush first — this is when SET NULL fires and new files are persisted
+                riskZoneRepository.relinkToFile(zoneId, newFileId);
+            }
+            // If newFileId is null, the file was removed from the walkthrough — zone keeps walkthrough_file_id=null
+        });
     }
 
     private WalkthroughEntity findWalkthroughById(UUID id) {

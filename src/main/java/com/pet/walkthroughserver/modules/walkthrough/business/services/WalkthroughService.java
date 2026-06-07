@@ -12,11 +12,13 @@ public interface WalkthroughService {
 
     WalkthroughEntity create(UUID userId, String username, CreateWalkthroughRequest request);
 
-    List<WalkthroughEntity> listByPr(String owner, String repo, Integer prNumber, UUID requestingUserId);
+    List<WalkthroughEntity> listByPr(UUID requestingUserId, String owner, String repo, Integer prNumber);
 
     List<WalkthroughEntity> listRecent(UUID userId);
 
     WalkthroughEntity getById(UUID id, UUID requestingUserId);
+
+    WalkthroughEntity syncCheck(UUID requestingUserId, UUID walkthroughId);
 
     WalkthroughEntity update(UUID userId, UUID walkthroughId, UpdateWalkthroughRequest request);
 
