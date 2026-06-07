@@ -58,9 +58,8 @@ public class WalkthroughEntity extends BaseEntity {
     @Column(name = "status", nullable = false, length = 20)
     private WalkthroughStatus status;
 
-    @Builder.Default
-    @Column(name = "version", nullable = false)
-    private Integer version = 1;
+    @Column(name = "outdated_reason", columnDefinition = "TEXT")
+    private String outdatedReason;
 
     @OneToMany(mappedBy = "walkthrough", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("sortOrder ASC")

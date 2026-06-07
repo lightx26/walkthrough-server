@@ -20,7 +20,7 @@ public class WalkthroughSummaryResponse {
     private String repo;
     private Integer prNumber;
     private WalkthroughStatus status;
-    private Integer version;
+    private String outdatedReason;
     private Integer chapterCount;
     @Setter
     private Integer commentCount;

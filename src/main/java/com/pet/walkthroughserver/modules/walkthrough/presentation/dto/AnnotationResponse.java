@@ -5,8 +5,6 @@ import lombok.Getter;
 
 import java.util.UUID;
 
-import com.pet.walkthroughserver.modules.walkthrough.repository.AnnotationStatus;
-
 @Getter
 @Builder
 public class AnnotationResponse {
@@ -16,5 +14,4 @@ public class AnnotationResponse {
     private String lineSide;
     private String content;
     private Integer sortOrder;
-    private AnnotationStatus status;
 }
