@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import com.pet.walkthroughserver.modules.walkthrough.business.models.WalkthroughDetail;
+import com.pet.walkthroughserver.modules.walkthrough.business.models.WalkthroughSummary;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.CreateWalkthroughRequest;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.UpdateWalkthroughRequest;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughEntity;
@@ -14,9 +16,9 @@ public interface WalkthroughService {
 
     List<WalkthroughEntity> listByPr(UUID requestingUserId, String owner, String repo, Integer prNumber);
 
-    List<WalkthroughEntity> listRecent(UUID userId);
+    List<WalkthroughSummary> listRecent(UUID userId);
 
-    WalkthroughEntity getById(UUID id, UUID requestingUserId);
+    WalkthroughDetail getById(UUID id, UUID requestingUserId);
 
     WalkthroughEntity syncCheck(UUID requestingUserId, UUID walkthroughId);
 

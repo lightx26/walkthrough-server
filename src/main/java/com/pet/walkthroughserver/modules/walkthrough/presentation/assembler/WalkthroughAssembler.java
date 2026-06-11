@@ -1,12 +1,12 @@
 package com.pet.walkthroughserver.modules.walkthrough.presentation.assembler;
 
+import com.pet.walkthroughserver.modules.walkthrough.business.models.ReadProgress;
 import com.pet.walkthroughserver.modules.walkthrough.business.services.ReadProgressService;
 import com.pet.walkthroughserver.modules.walkthrough.business.services.WalkthroughService;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.ReadProgressResponse;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.WalkthroughSummaryResponse;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.mapper.ReadProgressPresentationMapper;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.mapper.WalkthroughPresentationMapper;
-import com.pet.walkthroughserver.modules.walkthrough.repository.ReadProgressEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughEntity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -38,8 +38,8 @@ public class WalkthroughAssembler {
     /**
      * Maps a read-progress entity to a response with read chapter IDs populated.
      */
-    public ReadProgressResponse toProgressResponse(UUID userId, UUID walkthroughId, ReadProgressEntity entity) {
-        ReadProgressResponse response = readProgressMapper.toResponse(entity);
+    public ReadProgressResponse toProgressResponse(UUID userId, UUID walkthroughId, ReadProgress progress) {
+        ReadProgressResponse response = readProgressMapper.toResponse(progress);
         response.setReadChapterIds(readProgressService.getReadChapterIds(userId, walkthroughId));
         return response;
     }

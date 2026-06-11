@@ -28,6 +28,9 @@ import com.pet.walkthroughserver.modules.githubpr.business.services.GitHubPrServ
 import com.pet.walkthroughserver.modules.riskzone.repository.RiskScanRepository;
 import com.pet.walkthroughserver.modules.riskzone.repository.RiskZoneRepository;
 import com.pet.walkthroughserver.modules.walkthrough.business.cache.WalkthroughCacheEvictor;
+import com.pet.walkthroughserver.modules.walkthrough.business.mapper.WalkthroughProjectionMapper;
+import com.pet.walkthroughserver.modules.walkthrough.business.models.WalkthroughDetail;
+import com.pet.walkthroughserver.modules.walkthrough.business.models.WalkthroughSummary;
 import com.pet.walkthroughserver.modules.walkthrough.business.events.WalkthroughCreatedEvent;
 import com.pet.walkthroughserver.modules.walkthrough.business.events.WalkthroughDeletedEvent;
 import com.pet.walkthroughserver.modules.walkthrough.business.events.WalkthroughUpdatedEvent;
@@ -63,6 +66,7 @@ public class WalkthroughServiceImpl implements WalkthroughService {
     private final RiskScanRepository riskScanRepository;
     private final RiskZoneRepository riskZoneRepository;
     private final EntityManager entityManager;
+    private final WalkthroughProjectionMapper projectionMapper;
 
     @Override
     @Transactional
@@ -126,14 +130,15 @@ public class WalkthroughServiceImpl implements WalkthroughService {
 
     @Override
     @Cacheable(value = CacheNames.WALKTHROUGH_RECENT, key = "#userId")
-    public List<WalkthroughEntity> listRecent(UUID userId) {
-        return walkthroughRepository.findTop10ByUserIdOrderByUpdatedAtDesc(userId);
+    public List<WalkthroughSummary> listRecent(UUID userId) {
+        return projectionMapper.toSummaries(
+                walkthroughRepository.findTop10ByUserIdOrderByUpdatedAtDesc(userId));
     }
 
     @Override
     @Transactional(readOnly = true)
     @Cacheable(value = CacheNames.WALKTHROUGH_DETAIL, key = "#id")
-    public WalkthroughEntity getById(UUID id, UUID requestingUserId) {
+    public WalkthroughDetail getById(UUID id, UUID requestingUserId) {
         WalkthroughEntity walkthrough = Repositories.orThrow(walkthroughRepository.findByIdWithUser(id),
                 () -> new WalkthroughNotFoundException("Walkthrough not found"));
         boolean isOwner = walkthrough.getUserId().equals(requestingUserId);
@@ -147,7 +152,7 @@ public class WalkthroughServiceImpl implements WalkthroughService {
                 file.getAnnotations().size();
             }
         }
-        return walkthrough;
+        return projectionMapper.toDetail(walkthrough);
     }
 
     @Override

@@ -10,6 +10,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.pet.walkthroughserver.configs.CacheNames;
+import com.pet.walkthroughserver.modules.walkthrough.business.mapper.ReadProgressProjectionMapper;
+import com.pet.walkthroughserver.modules.walkthrough.business.models.ReadProgress;
 import com.pet.walkthroughserver.modules.walkthrough.exceptions.WalkthroughNotFoundException;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.RecordChapterViewRequest;
 import com.pet.walkthroughserver.modules.walkthrough.repository.ChapterReadMarkEntity;
@@ -31,6 +33,7 @@ public class ReadProgressServiceImpl implements ReadProgressService {
     private final ChapterViewEventRepository chapterViewEventRepository;
     private final ChapterReadMarkRepository chapterReadMarkRepository;
     private final ReadProgressRepository readProgressRepository;
+    private final ReadProgressProjectionMapper readProgressProjectionMapper;
 
     @Override
     @Transactional
@@ -117,8 +120,8 @@ public class ReadProgressServiceImpl implements ReadProgressService {
 
     @Override
     @Cacheable(value = CacheNames.WALKTHROUGH_PROGRESS, key = "#userId + ':' + #walkthroughId")
-    public ReadProgressEntity getReadProgress(UUID userId, UUID walkthroughId) {
-        return readProgressRepository
+    public ReadProgress getReadProgress(UUID userId, UUID walkthroughId) {
+        ReadProgressEntity entity = readProgressRepository
                 .findByUserIdAndWalkthroughId(userId, walkthroughId)
                 .orElse(ReadProgressEntity.builder()
                         .userId(userId)
@@ -128,6 +131,7 @@ public class ReadProgressServiceImpl implements ReadProgressService {
                         .timeSpentSec(0)
                         .readAt(Instant.now())
                         .build());
+        return readProgressProjectionMapper.toReadProgress(entity);
     }
 
     private ReadProgressEntity loadOrInitProgress(UUID userId, WalkthroughEntity walkthrough) {

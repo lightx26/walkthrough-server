@@ -1,5 +1,10 @@
 package com.pet.walkthroughserver.modules.walkthrough.presentation.mapper;
 
+import com.pet.walkthroughserver.modules.walkthrough.business.models.WalkthroughAnnotation;
+import com.pet.walkthroughserver.modules.walkthrough.business.models.WalkthroughChapter;
+import com.pet.walkthroughserver.modules.walkthrough.business.models.WalkthroughDetail;
+import com.pet.walkthroughserver.modules.walkthrough.business.models.WalkthroughFile;
+import com.pet.walkthroughserver.modules.walkthrough.business.models.WalkthroughSummary;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.AnnotationResponse;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.ChapterResponse;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.WalkthroughFileResponse;
@@ -34,4 +39,19 @@ public interface WalkthroughPresentationMapper {
     AnnotationResponse toAnnotationResponse(AnnotationEntity entity);
 
     List<WalkthroughSummaryResponse> toSummaryResponseList(List<WalkthroughEntity> entities);
+
+    // ── Read projections (serialization-safe; entities never leave the business layer) ──
+
+    WalkthroughResponse toResponse(WalkthroughDetail detail);
+
+    @Mapping(target = "commentCount", ignore = true)
+    WalkthroughSummaryResponse toSummaryResponse(WalkthroughSummary summary);
+
+    ChapterResponse toChapterResponse(WalkthroughChapter chapter);
+
+    WalkthroughFileResponse toFileResponse(WalkthroughFile file);
+
+    AnnotationResponse toAnnotationResponse(WalkthroughAnnotation annotation);
+
+    List<WalkthroughSummaryResponse> toSummaryResponses(List<WalkthroughSummary> summaries);
 }

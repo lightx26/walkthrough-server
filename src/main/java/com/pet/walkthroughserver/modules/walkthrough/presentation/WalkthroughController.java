@@ -22,6 +22,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.pet.walkthroughserver.interceptors.DataResponse;
 import com.pet.walkthroughserver.modules._shared.dto.ListData;
+import com.pet.walkthroughserver.modules.walkthrough.business.models.ReadProgress;
+import com.pet.walkthroughserver.modules.walkthrough.business.models.WalkthroughDetail;
+import com.pet.walkthroughserver.modules.walkthrough.business.models.WalkthroughSummary;
 import com.pet.walkthroughserver.modules.walkthrough.business.services.ReadProgressService;
 import com.pet.walkthroughserver.modules.walkthrough.business.services.WalkthroughService;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.CreateWalkthroughRequest;
@@ -81,9 +84,9 @@ public class WalkthroughController {
     public ResponseEntity<DataResponse<ListData<WalkthroughSummaryResponse>>> listRecent(
             @AuthenticationPrincipal AuthUser authUser) {
         UUID userId = UUID.fromString(authUser.getUserId());
-        List<WalkthroughEntity> entities = walkthroughService.listRecent(userId);
-        List<WalkthroughSummaryResponse> summaries = walkthroughMapper.toSummaryResponseList(entities);
-        return ResponseEntity.ok(DataResponse.of(ListData.of(summaries)));
+        List<WalkthroughSummary> summaries = walkthroughService.listRecent(userId);
+        List<WalkthroughSummaryResponse> responses = walkthroughMapper.toSummaryResponses(summaries);
+        return ResponseEntity.ok(DataResponse.of(ListData.of(responses)));
     }
 
     @GetMapping("/recently-reviewed")
@@ -123,8 +126,8 @@ public class WalkthroughController {
             @AuthenticationPrincipal AuthUser authUser,
             @PathVariable UUID id) {
         UUID userId = UUID.fromString(authUser.getUserId());
-        WalkthroughEntity entity = walkthroughService.getById(id, userId);
-        WalkthroughResponse response = walkthroughMapper.toResponse(entity);
+        WalkthroughDetail detail = walkthroughService.getById(id, userId);
+        WalkthroughResponse response = walkthroughMapper.toResponse(detail);
         return ResponseEntity.ok(DataResponse.of(response));
     }
 
@@ -202,8 +205,8 @@ public class WalkthroughController {
             @AuthenticationPrincipal AuthUser authUser,
             @PathVariable UUID walkthroughId) {
         UUID userId = UUID.fromString(authUser.getUserId());
-        ReadProgressEntity entity = readProgressService.getReadProgress(userId, walkthroughId);
-        ReadProgressResponse response = walkthroughAssembler.toProgressResponse(userId, walkthroughId, entity);
+        ReadProgress progress = readProgressService.getReadProgress(userId, walkthroughId);
+        ReadProgressResponse response = walkthroughAssembler.toProgressResponse(userId, walkthroughId, progress);
         return ResponseEntity.ok(DataResponse.of(response));
     }
 }
