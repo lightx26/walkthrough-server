@@ -2,7 +2,9 @@ package com.pet.walkthroughserver.modules.user.business.services;
 
 import com.pet.walkthroughserver.configs.CacheNames;
 import com.pet.walkthroughserver.modules.user.exceptions.UserNotFoundException;
+import com.pet.walkthroughserver.modules.user.business.mapper.UserProjectionMapper;
 import com.pet.walkthroughserver.modules.user.business.models.GitHubUserData;
+import com.pet.walkthroughserver.modules.user.business.models.UserSummary;
 import com.pet.walkthroughserver.modules.user.repository.UserEntity;
 import com.pet.walkthroughserver.modules.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +20,7 @@ import java.util.UUID;
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
+    private final UserProjectionMapper userProjectionMapper;
 
     @Override
     public UserEntity findById(UUID id) {
@@ -57,8 +60,9 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Cacheable(value = CacheNames.USER_SEARCH, key = "#query")
-    public List<UserEntity> searchUsers(String query) {
-        return userRepository.findTop10ByUsernameContainingIgnoreCaseOrDisplayNameContainingIgnoreCase(
-                query, query);
+    public List<UserSummary> searchUsers(String query) {
+        return userProjectionMapper.toUserSummaries(
+                userRepository.findTop10ByUsernameContainingIgnoreCaseOrDisplayNameContainingIgnoreCase(
+                        query, query));
     }
 }

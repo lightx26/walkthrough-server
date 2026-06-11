@@ -1,6 +1,7 @@
 package com.pet.walkthroughserver.modules.user.business.services;
 
 import com.pet.walkthroughserver.modules.user.business.models.GitHubUserData;
+import com.pet.walkthroughserver.modules.user.business.models.UserSummary;
 import com.pet.walkthroughserver.modules.user.repository.UserEntity;
 
 import java.util.List;
@@ -20,5 +21,5 @@ public interface UserService {
 
     UserEntity getCurrentUser(UUID userId);
 
-    List<UserEntity> searchUsers(String query);
+    List<UserSummary> searchUsers(String query);
 }
