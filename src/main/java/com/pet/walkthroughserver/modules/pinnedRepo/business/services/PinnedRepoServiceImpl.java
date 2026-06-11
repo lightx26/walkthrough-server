@@ -12,6 +12,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.pet.walkthroughserver.configs.CacheNames;
+import com.pet.walkthroughserver.modules.pinnedRepo.business.mapper.PinnedRepoProjectionMapper;
+import com.pet.walkthroughserver.modules.pinnedRepo.business.models.PinnedRepo;
 import com.pet.walkthroughserver.modules.pinnedRepo.repository.PinnedRepoEntity;
 import com.pet.walkthroughserver.modules.pinnedRepo.repository.PinnedRepoRepository;
 
@@ -22,6 +24,7 @@ import lombok.RequiredArgsConstructor;
 public class PinnedRepoServiceImpl implements PinnedRepoService {
 
     private final PinnedRepoRepository pinnedRepoRepository;
+    private final PinnedRepoProjectionMapper pinnedRepoProjectionMapper;
 
     @Override
     @Transactional
@@ -55,8 +58,9 @@ public class PinnedRepoServiceImpl implements PinnedRepoService {
     @Override
     @Transactional(readOnly = true)
     @Cacheable(value = CacheNames.PINNED_LIST, key = "#userId")
-    public List<PinnedRepoEntity> getPinnedRepos(UUID userId) {
-        return pinnedRepoRepository.findByUserIdOrderByCreatedAtDesc(userId);
+    public List<PinnedRepo> getPinnedRepos(UUID userId) {
+        return pinnedRepoProjectionMapper.toPinnedRepos(
+                pinnedRepoRepository.findByUserIdOrderByCreatedAtDesc(userId));
     }
 
     @Override

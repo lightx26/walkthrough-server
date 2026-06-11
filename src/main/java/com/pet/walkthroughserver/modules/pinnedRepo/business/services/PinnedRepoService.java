@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+import com.pet.walkthroughserver.modules.pinnedRepo.business.models.PinnedRepo;
 import com.pet.walkthroughserver.modules.pinnedRepo.repository.PinnedRepoEntity;
 
 public interface PinnedRepoService {
@@ -12,7 +13,7 @@ public interface PinnedRepoService {
 
     void unpinRepo(UUID userId, String repoFullName);
 
-    List<PinnedRepoEntity> getPinnedRepos(UUID userId);
+    List<PinnedRepo> getPinnedRepos(UUID userId);
 
     boolean isPinned(UUID userId, String repoFullName);
 

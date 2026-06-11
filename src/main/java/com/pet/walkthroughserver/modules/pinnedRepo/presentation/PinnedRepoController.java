@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.pet.walkthroughserver.interceptors.DataResponse;
 import com.pet.walkthroughserver.modules._shared.dto.ListData;
+import com.pet.walkthroughserver.modules.pinnedRepo.business.models.PinnedRepo;
 import com.pet.walkthroughserver.modules.pinnedRepo.business.services.PinnedRepoService;
 import com.pet.walkthroughserver.modules.pinnedRepo.presentation.dto.PinnedRepoRequest;
 import com.pet.walkthroughserver.modules.pinnedRepo.presentation.dto.PinnedRepoResponse;
@@ -37,7 +38,7 @@ public class PinnedRepoController {
     public ResponseEntity<DataResponse<ListData<PinnedRepoResponse>>> getPinnedRepos(
             @AuthenticationPrincipal AuthUser authUser) {
         UUID userId = UUID.fromString(authUser.getUserId());
-        List<PinnedRepoEntity> entities = pinnedRepoService.getPinnedRepos(userId);
+        List<PinnedRepo> entities = pinnedRepoService.getPinnedRepos(userId);
         List<PinnedRepoResponse> responses = entities.stream()
                 .map(this::toResponse)
                 .toList();
@@ -86,6 +87,16 @@ public class PinnedRepoController {
                 .repoName(entity.getRepoName())
                 .language(entity.getLanguage())
                 .createdAt(entity.getCreatedAt())
+                .build();
+    }
+
+    private PinnedRepoResponse toResponse(PinnedRepo pinnedRepo) {
+        return PinnedRepoResponse.builder()
+                .id(pinnedRepo.id())
+                .repoFullName(pinnedRepo.repoFullName())
+                .repoName(pinnedRepo.repoName())
+                .language(pinnedRepo.language())
+                .createdAt(pinnedRepo.createdAt())
                 .build();
     }
 }
