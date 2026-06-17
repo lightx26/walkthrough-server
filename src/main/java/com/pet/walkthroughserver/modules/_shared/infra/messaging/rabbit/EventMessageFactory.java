@@ -5,9 +5,11 @@ import java.util.UUID;
 import org.springframework.stereotype.Component;
 
 import com.pet.walkthroughserver.modules._shared.infra.messaging.CommentEventMessage;
+import com.pet.walkthroughserver.modules._shared.infra.messaging.RiskScanEventMessage;
 import com.pet.walkthroughserver.modules._shared.infra.messaging.WalkthroughEventMessage;
 import com.pet.walkthroughserver.modules._shared.messaging.DomainEvent;
 import com.pet.walkthroughserver.modules.comment.business.events.CommentCreatedEvent;
+import com.pet.walkthroughserver.modules.riskzone.business.sync.RiskScanRequestedEvent;
 import com.pet.walkthroughserver.modules.walkthrough.business.events.WalkthroughEvent;
 
 /**
@@ -20,6 +22,7 @@ public class EventMessageFactory {
         return switch (event) {
             case WalkthroughEvent e -> toWalkthroughMessage(e);
             case CommentCreatedEvent e -> toCommentMessage(e);
+            case RiskScanRequestedEvent e -> toRiskScanMessage(e);
             default -> throw new IllegalArgumentException(
                     "No message mapping for event type: " + event.eventType());
         };
@@ -43,6 +46,14 @@ public class EventMessageFactory {
                 event.content(),
                 event.walkthroughFileId(),
                 event.diffPosition()
+        );
+    }
+
+    private RiskScanEventMessage toRiskScanMessage(RiskScanRequestedEvent event) {
+        return new RiskScanEventMessage(
+                event.scanId(),
+                event.walkthroughId(),
+                event.occurredAt().toString()
         );
     }
 }

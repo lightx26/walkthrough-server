@@ -14,10 +14,11 @@ import com.pet.walkthroughserver.configs.RabbitMQConfig;
 public class EventRoutingRegistry {
 
     private static final Map<String, EventRoute> ROUTES = Map.of(
-            "WALKTHROUGH_CREATED", new EventRoute(RabbitMQConfig.WALKTHROUGH_EVENTS_EXCHANGE, "walkthrough.created"),
-            "WALKTHROUGH_UPDATED", new EventRoute(RabbitMQConfig.WALKTHROUGH_EVENTS_EXCHANGE, "walkthrough.updated"),
-            "WALKTHROUGH_DELETED", new EventRoute(RabbitMQConfig.WALKTHROUGH_EVENTS_EXCHANGE, "walkthrough.deleted"),
-            "COMMENT_CREATED",    new EventRoute(RabbitMQConfig.COMMENT_EXCHANGE, RabbitMQConfig.COMMENT_ROUTING_KEY)
+            "WALKTHROUGH_CREATED",  new EventRoute(RabbitMQConfig.WALKTHROUGH_EVENTS_EXCHANGE, "walkthrough.created"),
+            "WALKTHROUGH_UPDATED",  new EventRoute(RabbitMQConfig.WALKTHROUGH_EVENTS_EXCHANGE, "walkthrough.updated"),
+            "WALKTHROUGH_DELETED",  new EventRoute(RabbitMQConfig.WALKTHROUGH_EVENTS_EXCHANGE, "walkthrough.deleted"),
+            "COMMENT_CREATED",      new EventRoute(RabbitMQConfig.COMMENT_EXCHANGE, RabbitMQConfig.COMMENT_ROUTING_KEY),
+            "RISK_SCAN_REQUESTED",  new EventRoute(RabbitMQConfig.WALKTHROUGH_EVENTS_EXCHANGE, RabbitMQConfig.RISK_SCAN_ROUTING_KEY)
     );
 
     public EventRoute routeFor(String eventType) {
