@@ -20,7 +20,7 @@ public class RiskZoneEntity extends BaseEntity {
     @JoinColumn(name = "risk_scan_id", nullable = false)
     private RiskScanEntity riskScan;
 
-    @Column(name = "walkthrough_file_id", nullable = false)
+    @Column(name = "walkthrough_file_id")
     private UUID walkthroughFileId;
 
     @Enumerated(EnumType.STRING)
