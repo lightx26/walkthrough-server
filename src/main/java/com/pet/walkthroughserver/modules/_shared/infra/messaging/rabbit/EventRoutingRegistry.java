@@ -18,6 +18,8 @@ public class EventRoutingRegistry {
             "WALKTHROUGH_UPDATED",  new EventRoute(RabbitMQConfig.WALKTHROUGH_EVENTS_EXCHANGE, "walkthrough.updated"),
             "WALKTHROUGH_DELETED",  new EventRoute(RabbitMQConfig.WALKTHROUGH_EVENTS_EXCHANGE, "walkthrough.deleted"),
             "COMMENT_CREATED",      new EventRoute(RabbitMQConfig.COMMENT_EXCHANGE, RabbitMQConfig.COMMENT_ROUTING_KEY),
+            "REVIEW_DECISION_SUBMITTED", new EventRoute(RabbitMQConfig.REVIEW_EXCHANGE, RabbitMQConfig.REVIEW_ROUTING_KEY),
+            "REVIEW_DECISION_WITHDRAWN", new EventRoute(RabbitMQConfig.REVIEW_EXCHANGE, RabbitMQConfig.REVIEW_ROUTING_KEY),
             "RISK_SCAN_REQUESTED",  new EventRoute(RabbitMQConfig.WALKTHROUGH_EVENTS_EXCHANGE, RabbitMQConfig.RISK_SCAN_ROUTING_KEY)
     );
 

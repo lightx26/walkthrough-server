@@ -41,6 +41,13 @@ public class ReviewDecisionEntity extends BaseEntity {
     @Column(name = "comment", columnDefinition = "TEXT")
     private String comment;
 
+    @Column(name = "github_review_id")
+    private Long githubReviewId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "sync_status", nullable = false, length = 20)
+    private ReviewSyncStatus syncStatus;
+
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "user_id", insertable = false, updatable = false)
     private UserEntity user;

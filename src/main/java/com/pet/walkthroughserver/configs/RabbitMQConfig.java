@@ -20,6 +20,11 @@ public class RabbitMQConfig {
     public static final String COMMENT_EXCHANGE = "walkthrough.comment";
     public static final String COMMENT_ROUTING_KEY = "comment.created";
 
+    // ── Review decision events ──
+    public static final String REVIEW_QUEUE = "walkthrough.review.sync";
+    public static final String REVIEW_EXCHANGE = "walkthrough.review";
+    public static final String REVIEW_ROUTING_KEY = "review.decision";
+
     // ── Walkthrough search events ──
     public static final String WALKTHROUGH_EVENTS_EXCHANGE = "walkthrough.events";
     public static final String WALKTHROUGH_SEARCH_SYNC_QUEUE = "walkthrough.search.sync.q";
@@ -51,6 +56,23 @@ public class RabbitMQConfig {
     @Bean
     Binding commentBinding(Queue commentQueue, DirectExchange commentExchange) {
         return BindingBuilder.bind(commentQueue).to(commentExchange).with(COMMENT_ROUTING_KEY);
+    }
+
+    // ── Review decision topology ──
+
+    @Bean
+    Queue reviewQueue() {
+        return new Queue(REVIEW_QUEUE, true);
+    }
+
+    @Bean
+    DirectExchange reviewExchange() {
+        return new DirectExchange(REVIEW_EXCHANGE);
+    }
+
+    @Bean
+    Binding reviewBinding(Queue reviewQueue, DirectExchange reviewExchange) {
+        return BindingBuilder.bind(reviewQueue).to(reviewExchange).with(REVIEW_ROUTING_KEY);
     }
 
     // ── Walkthrough search topology ──

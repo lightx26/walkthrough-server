@@ -37,6 +37,21 @@ public interface GitHubResourceClient {
     Long createPullReviewComment(String accessToken, String owner, String repo, int prNumber,
                                   String body, String commitId, String path, int position);
 
+    /**
+     * Submits a pull request review (approve / request changes / comment).
+     *
+     * @param event one of {@code APPROVE}, {@code REQUEST_CHANGES}, {@code COMMENT}
+     * @return the GitHub review id
+     */
+    Long createPullReview(String accessToken, String owner, String repo, int prNumber,
+                           String body, String event);
+
+    /**
+     * Dismisses a previously submitted pull request review.
+     */
+    void dismissPullReview(String accessToken, String owner, String repo, int prNumber,
+                            long reviewId, String message);
+
     List<GitHubPullRequest> searchUserPullRequests(String accessToken, String username, int perPage);
 
     GitHubSearchPrsResponse searchPullRequests(String accessToken, String query, String username, int perPage);

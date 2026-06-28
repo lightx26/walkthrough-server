@@ -302,6 +302,50 @@ public class GitHubClientImpl implements GitHubAuthClient, GitHubResourceClient 
     }
 
     @Override
+    public Long createPullReview(String accessToken, String owner, String repo, int prNumber,
+                                  String body, String event) {
+        record ReviewRequest(String body, String event) {}
+        record ReviewResponse(Long id) {}
+
+        ReviewResponse response = execute("POST /repos/" + owner + "/" + repo + "/pulls/" + prNumber + "/reviews",
+                () -> restClient.post()
+                        .uri(GITHUB_API_URL + "/repos/{owner}/{repo}/pulls/{prNumber}/reviews",
+                                owner, repo, prNumber)
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .body(new ReviewRequest(body, event))
+                        .retrieve()
+                        .body(ReviewResponse.class));
+
+        if (response == null || response.id() == null) {
+            throw new GitHubApiException("Failed to create pull review on GitHub");
+        }
+
+        log.info("GitHub API [POST /repos/{}/{}/pulls/{}/reviews] — success, reviewId={}", owner, repo, prNumber, response.id());
+        return response.id();
+    }
+
+    @Override
+    public void dismissPullReview(String accessToken, String owner, String repo, int prNumber,
+                                   long reviewId, String message) {
+        record DismissRequest(String message, String event) {}
+
+        execute("PUT /repos/" + owner + "/" + repo + "/pulls/" + prNumber + "/reviews/" + reviewId + "/dismissals",
+                () -> restClient.put()
+                        .uri(GITHUB_API_URL + "/repos/{owner}/{repo}/pulls/{prNumber}/reviews/{reviewId}/dismissals",
+                                owner, repo, prNumber, reviewId)
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .body(new DismissRequest(message, "DISMISS"))
+                        .retrieve()
+                        .toBodilessEntity());
+
+        log.info("GitHub API [PUT /repos/{}/{}/pulls/{}/reviews/{}/dismissals] — success", owner, repo, prNumber, reviewId);
+    }
+
+    @Override
     public List<GitHubPullRequest> searchUserPullRequests(String accessToken, String username, int perPage) {
         record SearchResponse(List<GitHubPullRequest> items) {}
 
