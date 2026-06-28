@@ -1,9 +1,11 @@
 package com.pet.walkthroughserver.modules.walkthrough.business.services;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import com.pet.walkthroughserver.modules.walkthrough.business.models.ActivitySummary;
 import com.pet.walkthroughserver.modules.walkthrough.business.models.WalkthroughDetail;
 import com.pet.walkthroughserver.modules.walkthrough.business.models.WalkthroughSummary;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.CreateWalkthroughRequest;
@@ -37,4 +39,6 @@ public interface WalkthroughService {
     Map<Integer, Long> countByPrs(String owner, String repo, List<Integer> prNumbers, UUID requestingUserId);
 
     Map<UUID, Long> getCommentCounts(List<UUID> walkthroughIds);
+
+    ActivitySummary getActivitySummary(UUID userId, Instant since);
 }

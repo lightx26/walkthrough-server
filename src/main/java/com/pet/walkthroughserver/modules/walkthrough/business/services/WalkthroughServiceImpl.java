@@ -29,6 +29,7 @@ import com.pet.walkthroughserver.modules.riskzone.repository.RiskScanRepository;
 import com.pet.walkthroughserver.modules.riskzone.repository.RiskZoneRepository;
 import com.pet.walkthroughserver.modules.walkthrough.business.cache.WalkthroughCacheEvictor;
 import com.pet.walkthroughserver.modules.walkthrough.business.mapper.WalkthroughProjectionMapper;
+import com.pet.walkthroughserver.modules.walkthrough.business.models.ActivitySummary;
 import com.pet.walkthroughserver.modules.walkthrough.business.models.WalkthroughDetail;
 import com.pet.walkthroughserver.modules.walkthrough.business.models.WalkthroughSummary;
 import com.pet.walkthroughserver.modules.walkthrough.business.events.WalkthroughCreatedEvent;
@@ -279,6 +280,14 @@ public class WalkthroughServiceImpl implements WalkthroughService {
                         row -> (UUID) row[0],
                         row -> (Long) row[1]
                 ));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ActivitySummary getActivitySummary(UUID userId, Instant since) {
+        long walkthroughCount = walkthroughRepository.countByUserIdAndCreatedAtGreaterThanEqual(userId, since);
+        long commentCount = walkthroughRepository.countCommentsByUserIdSince(userId, since);
+        return new ActivitySummary(walkthroughCount, commentCount, since);
     }
 
     // ── Private helpers ──

@@ -1,5 +1,9 @@
 package com.pet.walkthroughserver.modules.walkthrough.presentation;
 
+import java.time.DayOfWeek;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -22,11 +26,13 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.pet.walkthroughserver.interceptors.DataResponse;
 import com.pet.walkthroughserver.modules._shared.dto.ListData;
+import com.pet.walkthroughserver.modules.walkthrough.business.models.ActivitySummary;
 import com.pet.walkthroughserver.modules.walkthrough.business.models.ReadProgress;
 import com.pet.walkthroughserver.modules.walkthrough.business.models.WalkthroughDetail;
 import com.pet.walkthroughserver.modules.walkthrough.business.models.WalkthroughSummary;
 import com.pet.walkthroughserver.modules.walkthrough.business.services.ReadProgressService;
 import com.pet.walkthroughserver.modules.walkthrough.business.services.WalkthroughService;
+import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.ActivitySummaryResponse;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.CreateWalkthroughRequest;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.ReadProgressResponse;
 import com.pet.walkthroughserver.modules.walkthrough.presentation.dto.RecentlyReviewedResponse;
@@ -87,6 +93,24 @@ public class WalkthroughController {
         List<WalkthroughSummary> summaries = walkthroughService.listRecent(userId);
         List<WalkthroughSummaryResponse> responses = walkthroughMapper.toSummaryResponses(summaries);
         return ResponseEntity.ok(DataResponse.of(ListData.of(responses)));
+    }
+
+    @GetMapping("/activity-summary")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<DataResponse<ActivitySummaryResponse>> getActivitySummary(
+            @AuthenticationPrincipal AuthUser authUser) {
+        UUID userId = UUID.fromString(authUser.getUserId());
+        Instant since = LocalDate.now(ZoneOffset.UTC)
+                .with(DayOfWeek.MONDAY)
+                .atStartOfDay(ZoneOffset.UTC)
+                .toInstant();
+        ActivitySummary summary = walkthroughService.getActivitySummary(userId, since);
+        ActivitySummaryResponse response = ActivitySummaryResponse.builder()
+                .walkthroughCount(summary.walkthroughCount())
+                .commentCount(summary.commentCount())
+                .since(summary.since())
+                .build();
+        return ResponseEntity.ok(DataResponse.of(response));
     }
 
     @GetMapping("/recently-reviewed")

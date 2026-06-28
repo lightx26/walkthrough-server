@@ -1,5 +1,6 @@
 package com.pet.walkthroughserver.modules.walkthrough.repository;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -42,6 +43,12 @@ public interface WalkthroughRepository extends JpaRepository<WalkthroughEntity, 
     @Query("SELECT COUNT(cm) FROM CommentEntity cm, WalkthroughEntity w " +
             "WHERE cm.walkthroughId = w.id AND w.userId = :userId")
     long countCommentsByUserId(@Param("userId") UUID userId);
+
+    long countByUserIdAndCreatedAtGreaterThanEqual(UUID userId, Instant createdAt);
+
+    @Query("SELECT COUNT(cm) FROM CommentEntity cm, WalkthroughEntity w " +
+            "WHERE cm.walkthroughId = w.id AND w.userId = :userId AND cm.createdAt >= :since")
+    long countCommentsByUserIdSince(@Param("userId") UUID userId, @Param("since") Instant since);
 
     @Query("SELECT COUNT(w) FROM WalkthroughEntity w " +
             "WHERE w.owner = :owner AND w.repo = :repo " +
