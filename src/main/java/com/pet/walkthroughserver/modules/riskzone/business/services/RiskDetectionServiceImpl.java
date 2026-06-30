@@ -8,6 +8,8 @@ import com.pet.walkthroughserver.modules._shared.util.UnifiedDiff.DiffWindow;
 import com.pet.walkthroughserver.modules.riskzone.business.models.ChapterContext;
 import com.pet.walkthroughserver.modules.riskzone.business.models.CrossFileRisk;
 import com.pet.walkthroughserver.modules.riskzone.business.models.DetectedRisk;
+import com.pet.walkthroughserver.modules.riskzone.business.models.FileChangeSummary;
+import com.pet.walkthroughserver.modules.riskzone.business.models.FileScanResult;
 import com.pet.walkthroughserver.modules.riskzone.business.prompt.RiskPromptBuilder;
 import com.pet.walkthroughserver.modules.riskzone.business.prompt.RiskPromptBuilder.ChapterFileDigest;
 import com.pet.walkthroughserver.modules.riskzone.business.prompt.RiskResponseParser;
@@ -26,25 +28,34 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class RiskDetectionServiceImpl implements RiskDetectionService {
 
-    /** Cap on hunk headers per file fed to the reduce pass — keeps the prompt bounded. */
-    private static final int MAX_HUNK_HEADERS_PER_FILE = 40;
-
     private final LlmClient llmClient;
     private final AiProperties aiProperties;
     private final RiskPromptBuilder promptBuilder;
     private final RiskResponseParser responseParser;
 
     @Override
-    public List<DetectedRisk> detect(WalkthroughFileEntity file, ChapterContext context) {
+    public FileScanResult detect(WalkthroughFileEntity file, ChapterContext context) {
         String rawPatch = file.getRawPatch();
-        if (rawPatch == null || rawPatch.isBlank()) return List.of();
+        if (rawPatch == null || rawPatch.isBlank()) {
+            return new FileScanResult(List.of(), FileChangeSummary.empty());
+        }
 
         int contextLines = aiProperties.getScan().getWindowContextLines();
         int maxChars = aiProperties.getScan().getMaxWindowChars();
         int maxContextChars = aiProperties.getScan().getMaxContextChars();
+        int maxPatchChars = aiProperties.getScan().getMaxPatchChars();
 
-        List<DiffWindow> windows = UnifiedDiff.extractChangedWindows(rawPatch, contextLines);
-        if (windows.isEmpty()) return List.of();
+        // File-level guard: trim the tail of an over-large patch before window extraction so a file
+        // with many windows can't blow out the prompt. Tail-trimming is position-safe — diff
+        // positions count from the first hunk header, so positions still validate against rawPatch.
+        String patchForWindows = rawPatch.length() > maxPatchChars
+                ? rawPatch.substring(0, maxPatchChars)
+                : rawPatch;
+
+        List<DiffWindow> windows = UnifiedDiff.extractChangedWindows(patchForWindows, contextLines);
+        if (windows.isEmpty()) {
+            return new FileScanResult(List.of(), FileChangeSummary.empty());
+        }
 
         // truncate oversized windows
         windows = windows.stream()
@@ -58,32 +69,36 @@ public class RiskDetectionServiceImpl implements RiskDetectionService {
                 context, maxContextChars);
         LlmResponse response = llmClient.complete(request);
 
-        List<DetectedRisk> risks = responseParser.parse(response.content());
-        risks = validatePositions(rawPatch, risks);
+        FileScanResult result = responseParser.parseFileScan(response.content());
+        List<DetectedRisk> validated = validatePositions(rawPatch, result.risks());
 
-        log.info("Detected {} risks in {} (provider={})", risks.size(), file.getFilename(), llmClient.providerName());
-        return risks;
+        log.info("Detected {} risks in {} (provider={})", validated.size(), file.getFilename(),
+                llmClient.providerName());
+        return new FileScanResult(validated, result.changeSummary());
     }
 
     @Override
     public List<CrossFileRisk> detectCrossFile(ChapterContext context,
                                                List<WalkthroughFileEntity> files,
-                                               Map<UUID, List<DetectedRisk>> risksByFile) {
+                                               Map<UUID, FileScanResult> resultsByFile) {
         if (files == null || files.size() < 2) return List.of();
+
+        int maxContextChars = aiProperties.getScan().getMaxContextChars();
 
         List<ChapterFileDigest> digests = new ArrayList<>();
         for (WalkthroughFileEntity f : files) {
-            List<String> titles = risksByFile.getOrDefault(f.getId(), List.of()).stream()
+            FileScanResult result = resultsByFile.getOrDefault(f.getId(),
+                    new FileScanResult(List.of(), FileChangeSummary.empty()));
+            List<String> titles = result.risks().stream()
                     .map(DetectedRisk::title)
                     .toList();
             digests.add(new ChapterFileDigest(
                     f.getFilename(),
                     f.getFileStatus(),
-                    extractHunkHeaders(f.getRawPatch()),
+                    result.changeSummary(),
                     titles));
         }
 
-        int maxContextChars = aiProperties.getScan().getMaxContextChars();
         var request = promptBuilder.buildChapterReduce(context, digests, maxContextChars);
         LlmResponse response = llmClient.complete(request);
 
@@ -106,22 +121,5 @@ public class RiskDetectionServiceImpl implements RiskDetectionService {
                             r.description(), r.suggestion(), start, end, side);
                 })
                 .toList();
-    }
-
-    /** Collect the {@code @@ … @@} hunk headers of a patch, bounded for prompt size. */
-    private String extractHunkHeaders(String rawPatch) {
-        if (rawPatch == null || rawPatch.isBlank()) return "";
-        StringBuilder sb = new StringBuilder();
-        int count = 0;
-        for (String line : rawPatch.split("\n")) {
-            if (line.startsWith("@@")) {
-                if (count++ >= MAX_HUNK_HEADERS_PER_FILE) {
-                    sb.append("  …(more)\n");
-                    break;
-                }
-                sb.append("  ").append(line.trim()).append('\n');
-            }
-        }
-        return sb.toString();
     }
 }

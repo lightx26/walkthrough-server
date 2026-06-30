@@ -3,6 +3,7 @@ package com.pet.walkthroughserver.modules.riskzone.business.prompt;
 import com.pet.walkthroughserver.modules._shared.infra.ai.LlmRequest;
 import com.pet.walkthroughserver.modules._shared.util.UnifiedDiff.DiffWindow;
 import com.pet.walkthroughserver.modules.riskzone.business.models.ChapterContext;
+import com.pet.walkthroughserver.modules.riskzone.business.models.FileChangeSummary;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -28,26 +29,38 @@ public class RiskPromptBuilder {
             to understand the intent of the change. It is provided only as background — report
             risks for the FILE UNDER REVIEW, anchoring positions to that file's diff windows.
 
-            Respond with a JSON array of risk objects. Each object must have:
+            Respond with a single JSON object (no markdown fences) with exactly two fields:
+
             {
-              "risk_level": "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
-              "category": one of the category names above,
-              "title": "Short title (max 80 chars)",
-              "description": "Detailed explanation of the risk",
-              "suggestion": "Concrete remediation suggestion",
-              "start_position": <integer diff position where risk starts, or null>,
-              "end_position": <integer diff position where risk ends, or null>,
-              "line_side": "LEFT" | "RIGHT" | null
+              "risks": [
+                {
+                  "risk_level": "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
+                  "category": one of the category names above,
+                  "title": "Short title (max 80 chars)",
+                  "description": "Detailed explanation of the risk",
+                  "suggestion": "Concrete remediation suggestion",
+                  "start_position": <integer diff position where risk starts, or null>,
+                  "end_position": <integer diff position where risk ends, or null>,
+                  "line_side": "LEFT" | "RIGHT" | null
+                }
+              ],
+              "change_summary": {
+                "added":    ["each exported symbol, public method, or API endpoint added"],
+                "removed":  ["each exported symbol, public method, or API endpoint removed"],
+                "modified": ["each exported symbol, public method, or API endpoint changed, with a brief note on what changed"]
+              }
             }
 
-            Return an empty array [] if no risks are found. Do not include markdown fences.
-            Only return the JSON array, nothing else.
+            Use an empty array for "risks" if no risks are found. Only include exported/public
+            symbols, method signatures, interface contracts, schema changes, and API surface changes
+            in "change_summary" — omit internal/private implementation details.
+            Only return the JSON object, nothing else.
             """;
 
     private static final String CROSS_FILE_SYSTEM_PROMPT = """
             You are a senior code reviewer performing a CROSS-FILE integration review of a single
             chapter of related changes. You are given the chapter intent, the list of files changed
-            together, each file's hunk headers, and the per-file risks already found.
+            together, the exported/public API changes of each file, and the per-file risks already found.
 
             Your job is to find risks that only become visible when looking across files together,
             for example:
@@ -104,9 +117,9 @@ public class RiskPromptBuilder {
     }
 
     /**
-     * Chapter-level (reduce) prompt. Sees a compact digest of every scanned file — hunk
-     * headers and the titles of risks already found — instead of full diffs, keeping the
-     * input bounded while enabling cross-file reasoning.
+     * Chapter-level (reduce) prompt. Sees a compact digest of every scanned file — the
+     * exported/public API changes produced by the map pass, and per-file risk titles —
+     * enabling cross-file contract-mismatch reasoning without raw diff content.
      */
     public LlmRequest buildChapterReduce(ChapterContext context, List<ChapterFileDigest> digests,
                                          int maxContextChars) {
@@ -118,12 +131,8 @@ public class RiskPromptBuilder {
         for (ChapterFileDigest d : digests) {
             user.append("File: ").append(d.filename())
                     .append(" (").append(d.status()).append(")\n");
-            user.append("Hunk headers:\n");
-            if (d.hunkHeaders() == null || d.hunkHeaders().isBlank()) {
-                user.append("  (none)\n");
-            } else {
-                user.append(d.hunkHeaders()).append('\n');
-            }
+            user.append("Public/exported changes:\n");
+            appendChangeSummary(user, d.changeSummary());
             user.append("Per-file risks already found:");
             if (d.existingRiskTitles().isEmpty()) {
                 user.append(" none\n");
@@ -137,6 +146,24 @@ public class RiskPromptBuilder {
         }
 
         return LlmRequest.of(CROSS_FILE_SYSTEM_PROMPT, user.toString());
+    }
+
+    private void appendChangeSummary(StringBuilder user, FileChangeSummary summary) {
+        if (summary == null || summary.isEmpty()) {
+            user.append("  (none)\n");
+            return;
+        }
+        appendSymbolList(user, "Added", summary.added());
+        appendSymbolList(user, "Removed", summary.removed());
+        appendSymbolList(user, "Modified", summary.modified());
+    }
+
+    private void appendSymbolList(StringBuilder user, String label, List<String> items) {
+        if (items == null || items.isEmpty()) return;
+        user.append("  ").append(label).append(":\n");
+        for (String item : items) {
+            user.append("    - ").append(item).append('\n');
+        }
     }
 
     private void appendContext(StringBuilder user, ChapterContext context, String fileUnderReview,
@@ -182,13 +209,14 @@ public class RiskPromptBuilder {
     }
 
     /**
-     * Compact per-file summary fed to the reduce pass: hunk headers (structure) plus the
-     * titles of risks already detected (semantics), without the full diff.
+     * Compact per-file summary fed to the reduce pass: the exported/public API changes the
+     * map LLM identified (semantics), plus the titles of risks already detected. No raw diff
+     * content is included — the reduce pass reasons purely over the public contract surface.
      */
     public record ChapterFileDigest(
             String filename,
             String status,
-            String hunkHeaders,
+            FileChangeSummary changeSummary,
             List<String> existingRiskTitles
     ) {}
 }

@@ -6,6 +6,9 @@ import com.pet.walkthroughserver.modules._shared.util.UnifiedDiff;
 import com.pet.walkthroughserver.modules.riskzone.business.models.ChapterContext;
 import com.pet.walkthroughserver.modules.riskzone.business.models.CrossFileRisk;
 import com.pet.walkthroughserver.modules.riskzone.business.models.DetectedRisk;
+import com.pet.walkthroughserver.modules.riskzone.business.models.FileScanResult;
+import com.pet.walkthroughserver.modules.riskzone.business.policy.ScanFileFilter;
+import com.pet.walkthroughserver.modules.riskzone.business.policy.ScanFileFilter.Decision;
 import com.pet.walkthroughserver.modules.riskzone.business.services.RiskDetectionService;
 import com.pet.walkthroughserver.modules.riskzone.repository.*;
 import com.pet.walkthroughserver.modules.walkthrough.repository.ChapterEntity;
@@ -29,10 +32,14 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class RiskScanHandlerImpl implements RiskScanHandler {
 
+    private static final String STATUS_PENDING = "pending";
+    private static final String STATUS_SKIPPED = "skipped";
+
     private final RiskScanRepository riskScanRepository;
     private final RiskZoneRepository riskZoneRepository;
     private final WalkthroughRepository walkthroughRepository;
     private final RiskDetectionService riskDetectionService;
+    private final ScanFileFilter scanFileFilter;
     private final LlmClient llmClient;
     private final AiProperties aiProperties;
 
@@ -47,18 +54,21 @@ public class RiskScanHandlerImpl implements RiskScanHandler {
 
         // Files grouped by chapter, ordered, capped globally at max-files. Preserving chapter
         // grouping lets the reduce phase reason across the files of one chapter; the flattened
-        // order matches the file_progress indices used for incremental UI updates.
-        Map<ChapterEntity, List<WalkthroughFileEntity>> byChapter =
-                collectScannableFiles(walkthrough, aiProperties.getScan().getMaxFiles());
+        // order matches the file_progress indices used for incremental UI updates. Generated,
+        // oversized, and over-cap files are excluded here and reported as "skipped".
+        ScanSelection selection = selectFiles(walkthrough, aiProperties.getScan().getMaxFiles());
+        Map<ChapterEntity, List<WalkthroughFileEntity>> byChapter = selection.byChapter();
         List<WalkthroughFileEntity> orderedFiles = byChapter.values().stream()
                 .flatMap(List::stream)
                 .toList();
 
-        // initialize scan
+        // initialize scan: scannable files first (their indices align with orderedFiles for
+        // incremental status updates), then the skipped files appended at the tail.
         List<FileProgressEntry> progress = new ArrayList<>();
         for (WalkthroughFileEntity f : orderedFiles) {
-            progress.add(new FileProgressEntry(f.getFilename(), "pending"));
+            progress.add(new FileProgressEntry(f.getFilename(), STATUS_PENDING));
         }
+        progress.addAll(selection.skipped());
         scan.setStatus(RiskScanStatus.ANALYZING);
         scan.setProvider(llmClient.providerName());
         scan.setModel(aiProperties.getDeepseek().getModel());
@@ -67,7 +77,7 @@ public class RiskScanHandlerImpl implements RiskScanHandler {
         scan.setFileProgress(progress);
         riskScanRepository.save(scan);
 
-        Map<UUID, List<DetectedRisk>> risksByFile = new HashMap<>();
+        Map<UUID, FileScanResult> resultsByFile = new HashMap<>();
 
         try {
             // ── Map phase: per-file detection with chapter context ──
@@ -80,10 +90,10 @@ public class RiskScanHandlerImpl implements RiskScanHandler {
                     riskScanRepository.save(scan);
 
                     try {
-                        List<DetectedRisk> risks = riskDetectionService.detect(file, context);
-                        persistRisks(scan, file.getId(), risks);
-                        updateCounts(scan, risks);
-                        risksByFile.put(file.getId(), risks);
+                        FileScanResult result = riskDetectionService.detect(file, context);
+                        persistRisks(scan, file.getId(), result.risks());
+                        updateCounts(scan, result.risks());
+                        resultsByFile.put(file.getId(), result);
                         scan.setAnalyzedFiles(scan.getAnalyzedFiles() + 1);
                         updateFileStatus(scan, index, "done");
                     } catch (Exception e) {
@@ -99,7 +109,7 @@ public class RiskScanHandlerImpl implements RiskScanHandler {
             // ── Reduce phase: cross-file analysis per chapter (best-effort) ──
             if (aiProperties.getScan().isCrossFileAnalysis()) {
                 for (Map.Entry<ChapterEntity, List<WalkthroughFileEntity>> entry : byChapter.entrySet()) {
-                    runCrossFileAnalysis(scan, entry.getKey(), entry.getValue(), risksByFile);
+                    runCrossFileAnalysis(scan, entry.getKey(), entry.getValue(), resultsByFile);
                 }
             }
 
@@ -126,13 +136,13 @@ public class RiskScanHandlerImpl implements RiskScanHandler {
      */
     private void runCrossFileAnalysis(RiskScanEntity scan, ChapterEntity chapter,
                                       List<WalkthroughFileEntity> files,
-                                      Map<UUID, List<DetectedRisk>> risksByFile) {
+                                      Map<UUID, FileScanResult> resultsByFile) {
         if (files.size() < aiProperties.getScan().getMinFilesForCrossFile()) return;
 
         try {
             ChapterContext context = ChapterContext.from(chapter);
             List<CrossFileRisk> crossFileRisks =
-                    riskDetectionService.detectCrossFile(context, files, risksByFile);
+                    riskDetectionService.detectCrossFile(context, files, resultsByFile);
             if (crossFileRisks.isEmpty()) return;
 
             // map reported filename → file id, validating positions against that file's patch
@@ -164,20 +174,40 @@ public class RiskScanHandlerImpl implements RiskScanHandler {
         }
     }
 
-    /** Collect scannable files grouped by chapter (insertion-ordered), capped globally. */
-    private Map<ChapterEntity, List<WalkthroughFileEntity>> collectScannableFiles(
-            WalkthroughEntity walkthrough, int maxFiles) {
+    /** The outcome of file selection: scannable files grouped by chapter, plus the skipped files. */
+    private record ScanSelection(
+            Map<ChapterEntity, List<WalkthroughFileEntity>> byChapter,
+            List<FileProgressEntry> skipped
+    ) {}
+
+    /**
+     * Select scannable files grouped by chapter (insertion-ordered), capped globally. Generated
+     * and oversized files (per {@link ScanFileFilter}) and files beyond the global cap are excluded
+     * and returned as "skipped" progress entries carrying a user-facing reason. Files with no diff
+     * content are dropped silently.
+     */
+    private ScanSelection selectFiles(WalkthroughEntity walkthrough, int maxFiles) {
         Map<ChapterEntity, List<WalkthroughFileEntity>> byChapter = new LinkedHashMap<>();
+        List<FileProgressEntry> skipped = new ArrayList<>();
         int remaining = maxFiles;
         for (ChapterEntity chapter : walkthrough.getChapters()) {
             for (WalkthroughFileEntity file : chapter.getFiles()) {
-                if (remaining <= 0) return byChapter;
-                if (file.getRawPatch() == null || file.getRawPatch().isBlank()) continue;
+                Decision decision = scanFileFilter.decide(file);
+                if (decision.isVisibleSkip()) {
+                    skipped.add(new FileProgressEntry(file.getFilename(), STATUS_SKIPPED, decision.reason()));
+                    continue;
+                }
+                if (!decision.isScan()) continue; // no diff content — drop silently
+                if (remaining <= 0) {
+                    skipped.add(new FileProgressEntry(file.getFilename(), STATUS_SKIPPED,
+                            "Scan limit reached (max " + maxFiles + " files)"));
+                    continue;
+                }
                 byChapter.computeIfAbsent(chapter, c -> new ArrayList<>()).add(file);
                 remaining--;
             }
         }
-        return byChapter;
+        return new ScanSelection(byChapter, skipped);
     }
 
     /** Null out invented diff positions so they aren't persisted as bogus inline overlays. */

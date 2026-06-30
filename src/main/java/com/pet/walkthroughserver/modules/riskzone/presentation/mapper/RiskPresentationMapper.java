@@ -1,7 +1,6 @@
 package com.pet.walkthroughserver.modules.riskzone.presentation.mapper;
 
 import com.pet.walkthroughserver.modules.riskzone.presentation.dto.*;
-import com.pet.walkthroughserver.modules.riskzone.repository.FileProgressEntry;
 import com.pet.walkthroughserver.modules.riskzone.repository.RiskScanEntity;
 import com.pet.walkthroughserver.modules.riskzone.repository.RiskZoneEntity;
 import com.pet.walkthroughserver.modules.walkthrough.repository.WalkthroughFileRepository;
@@ -35,7 +34,7 @@ public class RiskPresentationMapper {
         List<RiskFileProgressResponse> progressResponses = scan.getFileProgress() == null
                 ? List.of()
                 : scan.getFileProgress().stream()
-                        .map(e -> new RiskFileProgressResponse(e.filename(), e.status()))
+                        .map(e -> new RiskFileProgressResponse(e.filename(), e.status(), e.reason()))
                         .toList();
 
         return new RiskScanResponse(
@@ -78,13 +77,5 @@ public class RiskPresentationMapper {
         String filename = walkthroughFileRepository.findById(zone.getWalkthroughFileId())
                 .map(f -> f.getFilename()).orElse("");
         return toZoneResponse(zone, filename);
-    }
-
-    private static List<RiskFileProgressResponse> toProgressList(
-            List<FileProgressEntry> entries) {
-        if (entries == null) return List.of();
-        return entries.stream()
-                .map(e -> new RiskFileProgressResponse(e.filename(), e.status()))
-                .toList();
     }
 }

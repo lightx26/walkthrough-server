@@ -1,3 +1,3 @@
 package com.pet.walkthroughserver.modules.riskzone.presentation.dto;
 
-public record RiskFileProgressResponse(String filename, String status) {}
+public record RiskFileProgressResponse(String filename, String status, String reason) {}

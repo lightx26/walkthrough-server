@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pet.walkthroughserver.modules._shared.infra.ai.exceptions.LlmResponseParseException;
 import com.pet.walkthroughserver.modules.riskzone.business.models.CrossFileRisk;
 import com.pet.walkthroughserver.modules.riskzone.business.models.DetectedRisk;
+import com.pet.walkthroughserver.modules.riskzone.business.models.FileChangeSummary;
+import com.pet.walkthroughserver.modules.riskzone.business.models.FileScanResult;
 import com.pet.walkthroughserver.modules.riskzone.repository.RiskCategory;
 import com.pet.walkthroughserver.modules.riskzone.repository.RiskLevel;
 import lombok.extern.slf4j.Slf4j;
@@ -20,17 +22,38 @@ public class RiskResponseParser {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    /** Per-file pass: parse a JSON array of risk objects into {@link DetectedRisk}. */
-    public List<DetectedRisk> parse(String content) {
-        List<DetectedRisk> results = new ArrayList<>();
-        for (RawRisk r : readArray(content)) {
-            try {
-                results.add(toDetectedRisk(r));
-            } catch (Exception e) {
-                log.warn("Dropping malformed risk entry: {} — {}", r, e.getMessage());
+    /**
+     * Per-file (map) pass: parse the combined JSON object containing {@code risks} and
+     * {@code change_summary}. Malformed individual risk entries are dropped with a warning;
+     * a missing or empty {@code change_summary} yields {@link FileChangeSummary#empty()}.
+     */
+    public FileScanResult parseFileScan(String content) {
+        if (content == null || content.isBlank()) {
+            return new FileScanResult(List.of(), FileChangeSummary.empty());
+        }
+
+        String json = stripFences(content.trim());
+        RawFileScan raw;
+        try {
+            raw = MAPPER.readValue(json, RawFileScan.class);
+        } catch (Exception e) {
+            throw new LlmResponseParseException(
+                    "Cannot parse per-file LLM response as JSON object: " + e.getMessage(), e);
+        }
+
+        List<DetectedRisk> risks = new ArrayList<>();
+        if (raw.risks() != null) {
+            for (RawRisk r : raw.risks()) {
+                try {
+                    risks.add(toDetectedRisk(r));
+                } catch (Exception e) {
+                    log.warn("Dropping malformed risk entry: {} — {}", r, e.getMessage());
+                }
             }
         }
-        return results;
+
+        FileChangeSummary changeSummary = toChangeSummary(raw.changeSummary());
+        return new FileScanResult(risks, changeSummary);
     }
 
     /**
@@ -85,6 +108,15 @@ public class RiskResponseParser {
         );
     }
 
+    private FileChangeSummary toChangeSummary(RawChangeSummary raw) {
+        if (raw == null) return FileChangeSummary.empty();
+        return new FileChangeSummary(
+                raw.added() != null ? raw.added() : List.of(),
+                raw.removed() != null ? raw.removed() : List.of(),
+                raw.modified() != null ? raw.modified() : List.of()
+        );
+    }
+
     private RiskLevel parseLevel(String value) {
         if (value == null) return RiskLevel.LOW;
         try {
@@ -110,6 +142,19 @@ public class RiskResponseParser {
         }
         return s;
     }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record RawFileScan(
+            @JsonProperty("risks")          List<RawRisk> risks,
+            @JsonProperty("change_summary") RawChangeSummary changeSummary
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record RawChangeSummary(
+            @JsonProperty("added")    List<String> added,
+            @JsonProperty("removed")  List<String> removed,
+            @JsonProperty("modified") List<String> modified
+    ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     record RawRisk(
